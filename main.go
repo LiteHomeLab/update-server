@@ -100,5 +100,11 @@ func setupRoutes(r *gin.Engine, db *gorm.DB, authMiddleware *middleware.AuthMidd
 	{
 		upload.POST("/version/upload", handler.NewVersionHandler(db).UploadVersion)
 		upload.DELETE("/version/:channel/:version", handler.NewVersionHandler(db).DeleteVersion)
+
+		// 程序管理路由
+		programHandler := handler.NewProgramHandler(service.NewProgramService(db))
+		upload.POST("/programs", programHandler.CreateProgram)
+		upload.GET("/programs", programHandler.ListPrograms)
+		upload.GET("/programs/:programId", programHandler.GetProgram)
 	}
 }
