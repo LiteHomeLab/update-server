@@ -43,3 +43,5 @@ datapackages/
 # Temporary files
 nul
 *.tmp
+
+./claude/
