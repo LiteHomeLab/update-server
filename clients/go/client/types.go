@@ -4,6 +4,7 @@ import "time"
 
 // UpdateInfo 更新信息
 type UpdateInfo struct {
+	ProgramID    string    `json:"programId"`
 	Version      string    `json:"version"`
 	Channel      string    `json:"channel"`
 	FileName     string    `json:"fileName"`
