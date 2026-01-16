@@ -18,38 +18,44 @@ func NewVersionService(db *gorm.DB, storageSvc *StorageService) *VersionService 
 }
 
 // GetLatestVersion 获取最新版本
-func (s *VersionService) GetLatestVersion(channel string) (*models.Version, error) {
+func (s *VersionService) GetLatestVersion(programID, channel string) (*models.Version, error) {
 	var version models.Version
-	err := s.db.Where("channel = ?", channel).Order("publish_date DESC").First(&version).Error
+	err := s.db.Where("program_id = ? AND channel = ?", programID, channel).
+		Order("publish_date DESC").
+		First(&version).Error
 	return &version, err
 }
 
 // GetVersionList 获取版本列表
-func (s *VersionService) GetVersionList(channel string) ([]models.Version, error) {
+func (s *VersionService) GetVersionList(programID, channel string) ([]models.Version, error) {
 	var versions []models.Version
-	query := s.db.Order("publish_date DESC")
+	query := s.db.Where("program_id = ?", programID)
 	if channel != "" {
 		query = query.Where("channel = ?", channel)
 	}
-	err := query.Find(&versions).Error
+	err := query.Order("publish_date DESC").Find(&versions).Error
 	return versions, err
 }
 
 // GetVersion 获取指定版本
-func (s *VersionService) GetVersion(channel, version string) (*models.Version, error) {
+func (s *VersionService) GetVersion(programID, channel, version string) (*models.Version, error) {
 	var v models.Version
-	err := s.db.Where("channel = ? AND version = ?", channel, version).First(&v).Error
+	err := s.db.Where("program_id = ? AND channel = ? AND version = ?", programID, channel, version).First(&v).Error
 	return &v, err
 }
 
 // CreateVersion 创建新版本
 func (s *VersionService) CreateVersion(version *models.Version) error {
+	// 确保 ProgramID 不为空
+	if version.ProgramID == "" {
+		version.ProgramID = "docufiller"
+	}
 	return s.db.Create(version).Error
 }
 
 // DeleteVersion 删除版本
-func (s *VersionService) DeleteVersion(channel, version string) error {
-	return s.db.Where("channel = ? AND version = ?", channel, version).Delete(&models.Version{}).Error
+func (s *VersionService) DeleteVersion(programID, channel, version string) error {
+	return s.db.Where("program_id = ? AND channel = ? AND version = ?", programID, channel, version).Delete(&models.Version{}).Error
 }
 
 // IncrementDownloadCount 增加下载计数

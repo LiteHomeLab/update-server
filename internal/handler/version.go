@@ -26,11 +26,12 @@ func NewVersionHandler(db *gorm.DB) *VersionHandler {
 
 // GetLatestVersion 获取最新版本
 func (h *VersionHandler) GetLatestVersion(c *gin.Context) {
+	programID := c.Param("programId")
 	channel := c.DefaultQuery("channel", "stable")
 
-	logger.Debugf("Get latest version request, channel: %s", channel)
+	logger.Debugf("Get latest version request, program: %s, channel: %s", programID, channel)
 
-	version, err := h.versionSvc.GetLatestVersion(channel)
+	version, err := h.versionSvc.GetLatestVersion(programID, channel)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(404, gin.H{"error": "No version found"})
@@ -46,9 +47,12 @@ func (h *VersionHandler) GetLatestVersion(c *gin.Context) {
 
 // GetVersionList 获取版本列表
 func (h *VersionHandler) GetVersionList(c *gin.Context) {
+	programID := c.Param("programId")
 	channel := c.Query("channel")
 
-	versions, err := h.versionSvc.GetVersionList(channel)
+	logger.Debugf("Get version list request, program: %s, channel: %s", programID, channel)
+
+	versions, err := h.versionSvc.GetVersionList(programID, channel)
 	if err != nil {
 		logger.Errorf("Failed to get version list: %v", err)
 		c.JSON(500, gin.H{"error": "Internal server error"})
@@ -60,12 +64,13 @@ func (h *VersionHandler) GetVersionList(c *gin.Context) {
 
 // GetVersionDetail 获取版本详情
 func (h *VersionHandler) GetVersionDetail(c *gin.Context) {
+	programID := c.Param("programId")
 	channel := c.Param("channel")
 	version := c.Param("version")
 
-	logger.Debugf("Get version detail: %s/%s", channel, version)
+	logger.Debugf("Get version detail: %s/%s/%s", programID, channel, version)
 
-	v, err := h.versionSvc.GetVersion(channel, version)
+	v, err := h.versionSvc.GetVersion(programID, channel, version)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(404, gin.H{"error": "Version not found"})
@@ -81,13 +86,14 @@ func (h *VersionHandler) GetVersionDetail(c *gin.Context) {
 
 // UploadVersion 上传新版本
 func (h *VersionHandler) UploadVersion(c *gin.Context) {
+	programID := c.Param("programId")
 	channel := c.PostForm("channel")
 	version := c.PostForm("version")
 	notes := c.PostForm("notes")
 	mandatory, _ := strconv.ParseBool(c.PostForm("mandatory"))
 
-	if channel == "" || version == "" {
-		c.JSON(400, gin.H{"error": "channel and version are required"})
+	if programID == "" || channel == "" || version == "" {
+		c.JSON(400, gin.H{"error": "programId, channel and version are required"})
 		return
 	}
 
@@ -97,7 +103,7 @@ func (h *VersionHandler) UploadVersion(c *gin.Context) {
 		return
 	}
 
-	logger.Infof("Upload request: %s/%s, file: %s", channel, version, fileHeader.Filename)
+	logger.Infof("Upload request: %s/%s/%s, file: %s", programID, channel, version, fileHeader.Filename)
 
 	// 打开文件
 	file, err := fileHeader.Open()
@@ -109,7 +115,7 @@ func (h *VersionHandler) UploadVersion(c *gin.Context) {
 	defer file.Close()
 
 	// 保存文件
-	fileName, fileSize, fileHash, err := h.versionSvc.GetStorageService().SaveFile(channel, version, file)
+	fileName, fileSize, fileHash, err := h.versionSvc.GetStorageService().SaveFile(programID, channel, version, file)
 	if err != nil {
 		logger.Errorf("Failed to save file: %v", err)
 		c.JSON(500, gin.H{"error": "Failed to save file"})
@@ -118,10 +124,11 @@ func (h *VersionHandler) UploadVersion(c *gin.Context) {
 
 	// 创建版本记录
 	v := &models.Version{
+		ProgramID:    programID,
 		Version:      version,
 		Channel:      channel,
 		FileName:     fileName,
-		FilePath:     filepath.Join("./data/packages", channel, version),
+		FilePath:     filepath.Join("./data/packages", programID, channel, version),
 		FileSize:     fileSize,
 		FileHash:     fileHash,
 		ReleaseNotes: notes,
@@ -135,24 +142,25 @@ func (h *VersionHandler) UploadVersion(c *gin.Context) {
 		return
 	}
 
-	logger.Infof("Version uploaded successfully: %s/%s", channel, version)
+	logger.Infof("Version uploaded successfully: %s/%s/%s", programID, channel, version)
 	c.JSON(http.StatusOK, gin.H{"message": "Version uploaded successfully", "version": v})
 }
 
 // DeleteVersion 删除版本
 func (h *VersionHandler) DeleteVersion(c *gin.Context) {
+	programID := c.Param("programId")
 	channel := c.Param("channel")
 	version := c.Param("version")
 
-	logger.Infof("Delete request: %s/%s", channel, version)
+	logger.Infof("Delete request: %s/%s/%s", programID, channel, version)
 
 	// 删除文件
-	if err := h.versionSvc.GetStorageService().DeleteFile(channel, version); err != nil {
+	if err := h.versionSvc.GetStorageService().DeleteFile(programID, channel, version); err != nil {
 		logger.Warnf("Failed to delete file: %v", err)
 	}
 
 	// 删除记录
-	if err := h.versionSvc.DeleteVersion(channel, version); err != nil {
+	if err := h.versionSvc.DeleteVersion(programID, channel, version); err != nil {
 		logger.Errorf("Failed to delete version: %v", err)
 		c.JSON(500, gin.H{"error": "Failed to delete version"})
 		return
@@ -163,12 +171,13 @@ func (h *VersionHandler) DeleteVersion(c *gin.Context) {
 
 // DownloadFile 下载文件
 func (h *VersionHandler) DownloadFile(c *gin.Context) {
+	programID := c.Param("programId")
 	channel := c.Param("channel")
 	version := c.Param("version")
 
-	logger.Debugf("Download request: %s/%s", channel, version)
+	logger.Debugf("Download request: %s/%s/%s", programID, channel, version)
 
-	v, err := h.versionSvc.GetVersion(channel, version)
+	v, err := h.versionSvc.GetVersion(programID, channel, version)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(404, gin.H{"error": "Version not found"})
@@ -178,7 +187,7 @@ func (h *VersionHandler) DownloadFile(c *gin.Context) {
 		return
 	}
 
-	filePath := h.versionSvc.GetStorageService().GetFilePath(channel, version)
+	filePath := h.versionSvc.GetStorageService().GetFilePath(programID, channel, version)
 	c.File(filePath)
 
 	// 增加下载计数
