@@ -42,7 +42,7 @@ func main() {
 	}
 
 	// 自动迁移
-	if err := db.AutoMigrate(&models.Version{}, &models.Program{}); err != nil {
+	if err := db.AutoMigrate(&models.Version{}, &models.Program{}, &models.Token{}); err != nil {
 		logger.Fatalf("Failed to migrate database: %v", err)
 	}
 
