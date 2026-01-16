@@ -45,3 +45,4 @@ nul
 *.tmp
 
 .claude
+clients/csharp/DocuFiller.UpdateClient/obj
