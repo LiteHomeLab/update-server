@@ -11,6 +11,7 @@ import (
 	"docufiller-update-server/internal/logger"
 	"docufiller-update-server/internal/middleware"
 	"docufiller-update-server/internal/models"
+	"docufiller-update-server/internal/service"
 )
 
 func main() {
@@ -42,12 +43,17 @@ func main() {
 	}
 
 	// 自动迁移
-	if err := db.AutoMigrate(&models.Version{}); err != nil {
+	if err := db.AutoMigrate(&models.Version{}, &models.Program{}, &models.Token{}); err != nil {
 		logger.Fatalf("Failed to migrate database: %v", err)
 	}
 
 	// 初始化认证中间件
-	middleware.InitAuth(cfg.API.UploadToken)
+	tokenSvc := service.NewTokenService(db)
+	authMiddleware := middleware.NewAuthMiddleware(tokenSvc)
+
+	// 初始化加密服务
+	cryptoSvc := service.NewCryptoService(cfg.Crypto.MasterKey)
+	cryptoMiddleware := middleware.NewCryptoMiddleware(cryptoSvc)
 
 	// 设置 Gin
 	if cfg.Logger.Level != "debug" {
@@ -55,8 +61,11 @@ func main() {
 	}
 	r := gin.Default()
 
+	// 注册加密中间件
+	r.Use(cryptoMiddleware.Process())
+
 	// 注册路由
-	setupRoutes(r, db)
+	setupRoutes(r, db, authMiddleware)
 
 	// 启动服务器
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
@@ -66,21 +75,69 @@ func main() {
 	}
 }
 
-func setupRoutes(r *gin.Engine, db *gorm.DB) {
-	// 健康检查
-	r.GET("/api/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
-
-	// 版本相关路由
-	versionHandler := handler.NewVersionHandler(db)
-	api := r.Group("/api")
+func setupRoutes(r *gin.Engine, db *gorm.DB, authMiddleware *middleware.AuthMiddleware) {
+	// 公开路由
+	public := r.Group("/api")
 	{
-		api.GET("/version/latest", versionHandler.GetLatestVersion)
-		api.GET("/version/list", versionHandler.GetVersionList)
-		api.GET("/version/:channel/:version", versionHandler.GetVersionDetail)
-		api.POST("/version/upload", middleware.AuthMiddleware(), versionHandler.UploadVersion)
-		api.DELETE("/version/:channel/:version", middleware.AuthMiddleware(), versionHandler.DeleteVersion)
-		api.GET("/download/:channel/:version", versionHandler.DownloadFile)
+		public.GET("/health", func(c *gin.Context) {
+			c.JSON(200, gin.H{"status": "ok"})
+		})
+		public.GET("/programs/:programId/versions/latest", handler.NewVersionHandler(db).GetLatestVersion)
+		public.GET("/programs/:programId/versions", handler.NewVersionHandler(db).GetVersionList)
+		public.GET("/programs/:programId/versions/:channel/:version", handler.NewVersionHandler(db).GetVersionDetail)
 	}
+
+	// 认证路由 - 下载
+	download := r.Group("/api")
+	download.Use(authMiddleware.RequireDownload())
+	{
+		download.GET("/programs/:programId/download/:channel/:version", handler.NewVersionHandler(db).DownloadFile)
+	}
+
+	// 认证路由 - 上传
+	upload := r.Group("/api")
+	upload.Use(authMiddleware.RequireUpload())
+	{
+		upload.POST("/programs/:programId/versions", handler.NewVersionHandler(db).UploadVersion)
+		upload.DELETE("/programs/:programId/versions/:version", handler.NewVersionHandler(db).DeleteVersion)
+
+		// 程序管理路由
+		programHandler := handler.NewProgramHandler(service.NewProgramService(db))
+		upload.POST("/programs", programHandler.CreateProgram)
+		upload.GET("/programs", programHandler.ListPrograms)
+		upload.GET("/programs/:programId", programHandler.GetProgram)
+	}
+
+	// 向后兼容路由 - 映射到 docufiller
+	// 保留旧 API 端点以确保向后兼容性
+	deprecationMiddleware := middleware.DeprecationWarning()
+
+	legacy := r.Group("/api/version")
+	legacy.Use(deprecationMiddleware)
+	{
+		// GET /api/version/latest?channel=stable -> /api/programs/docufiller/versions/latest?channel=stable
+		legacy.GET("/latest", func(c *gin.Context) {
+			c.Request.URL.Path = "/api/programs/docufiller/versions/latest"
+			r.HandleContext(c)
+		})
+
+		// GET /api/version/list?channel=stable -> /api/programs/docufiller/versions?channel=stable
+		legacy.GET("/list", func(c *gin.Context) {
+			c.Request.URL.Path = "/api/programs/docufiller/versions"
+			r.HandleContext(c)
+		})
+
+		// POST /api/version/upload -> /api/programs/docufiller/versions
+		legacy.POST("/upload", func(c *gin.Context) {
+			c.Request.URL.Path = "/api/programs/docufiller/versions"
+			r.HandleContext(c)
+		})
+	}
+
+	// 兼容下载路由
+	// GET /api/download/:channel/:version -> /api/programs/docufiller/download/:channel/:version
+	r.GET("/api/download/:channel/:version", deprecationMiddleware, func(c *gin.Context) {
+		c.Request.URL.Path = "/api/programs/docufiller/download/" + c.Param("channel") + "/" + c.Param("version")
+		r.HandleContext(c)
+	})
 }

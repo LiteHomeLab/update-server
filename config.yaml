@@ -21,3 +21,6 @@ logger:
   maxBackups: 5
   maxAge: 30
   compress: true
+
+crypto:
+  masterKey: "change-this-to-a-secure-32-byte-key-in-production"
