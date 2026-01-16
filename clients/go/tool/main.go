@@ -139,10 +139,11 @@ func init() {
 // delete command
 var (
 	deleteVersion string
+	deleteChannel string
 )
 
 var deleteCmd = &cobra.Command{
-	Use:   "delete --version <version>",
+	Use:   "delete --version <version> [--channel <stable|beta>]",
 	Short: "Delete a version",
 	Long:  `Delete a specific version from the update server.`,
 	Args:  cobra.NoArgs,
@@ -153,11 +154,15 @@ var deleteCmd = &cobra.Command{
 			return fmt.Errorf("--version is required")
 		}
 
+		if deleteChannel == "" {
+			deleteChannel = "stable" // 默认通道
+		}
+
 		admin := NewUpdateAdmin(cfg.ServerURL, cfg.Token)
 
-		fmt.Printf("Deleting %s/%s...\n", cfgProgramID, deleteVersion)
+		fmt.Printf("Deleting %s/%s/%s...\n", cfgProgramID, deleteChannel, deleteVersion)
 
-		if err := admin.DeleteVersion(cfg.ProgramID, deleteVersion); err != nil {
+		if err := admin.DeleteVersion(cfg.ProgramID, deleteChannel, deleteVersion); err != nil {
 			return err
 		}
 
@@ -168,5 +173,6 @@ var deleteCmd = &cobra.Command{
 
 func init() {
 	deleteCmd.Flags().StringVar(&deleteVersion, "version", "", "Version number")
+	deleteCmd.Flags().StringVar(&deleteChannel, "channel", "", "Channel (stable/beta, default: stable)")
 	deleteCmd.MarkFlagRequired("version")
 }

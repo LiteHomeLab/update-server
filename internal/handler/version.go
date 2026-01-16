@@ -149,8 +149,12 @@ func (h *VersionHandler) UploadVersion(c *gin.Context) {
 // DeleteVersion 删除版本
 func (h *VersionHandler) DeleteVersion(c *gin.Context) {
 	programID := c.Param("programId")
-	channel := c.Param("channel")
+	channel := c.Query("channel")
 	version := c.Param("version")
+
+	if channel == "" {
+		channel = "stable" // 默认通道
+	}
 
 	logger.Infof("Delete request: %s/%s/%s", programID, channel, version)
 

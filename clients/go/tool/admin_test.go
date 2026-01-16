@@ -162,7 +162,7 @@ func TestDeleteVersion(t *testing.T) {
 
 	admin := NewUpdateAdmin(server.URL, "test-token")
 
-	err := admin.DeleteVersion("test-program", "1.0.0")
+	err := admin.DeleteVersion("test-program", "stable", "1.0.0")
 	if err != nil {
 		t.Fatalf("DeleteVersion failed: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestDeleteVersion_Error(t *testing.T) {
 
 	admin := NewUpdateAdmin(server.URL, "test-token")
 
-	err := admin.DeleteVersion("test-program", "1.0.0")
+	err := admin.DeleteVersion("test-program", "stable", "1.0.0")
 	if err == nil {
 		t.Error("Expected error for failed delete, got nil")
 	}

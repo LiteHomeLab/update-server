@@ -81,8 +81,8 @@ func (a *UpdateAdmin) ListVersions(programID, channel string) ([]VersionInfo, er
 }
 
 // DeleteVersion deletes a specific version
-func (a *UpdateAdmin) DeleteVersion(programID, version string) error {
-	url := fmt.Sprintf("%s/api/programs/%s/versions/%s", a.serverURL, programID, version)
+func (a *UpdateAdmin) DeleteVersion(programID, channel, version string) error {
+	url := fmt.Sprintf("%s/api/programs/%s/versions/%s?channel=%s", a.serverURL, programID, version, channel)
 
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
@@ -121,8 +121,8 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 	pw.written += int64(n)
 	if pw.callback != nil {
 		pw.callback(UploadProgress{
-			Uploaded:    pw.written,
-			Total:       pw.total,
+			Uploaded:   pw.written,
+			Total:      pw.total,
 			Percentage: float64(pw.written) / float64(pw.total) * 100,
 		})
 	}

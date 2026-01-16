@@ -26,8 +26,13 @@ func (m *CryptoMiddleware) Process() gin.HandlerFunc {
 		// 1. Read request body
 		var bodyBytes []byte
 		if c.Request.Body != nil {
-			bodyBytes, _ = io.ReadAll(c.Request.Body)
+			var err error
+			bodyBytes, err = io.ReadAll(c.Request.Body)
 			c.Request.Body.Close()
+			if err != nil {
+				logger.Warnf("Failed to read request body: %v", err)
+				// Continue with empty body
+			}
 		}
 
 		// 2. Try to parse as encrypted format
@@ -52,10 +57,15 @@ func (m *CryptoMiddleware) Process() gin.HandlerFunc {
 			}
 
 			// Replace request body with decrypted data
-			c.Request.Body = io.NopCloser(bytes.NewReader(plaintext))
+			bodyBytes = plaintext
 		}
 
-		// 5. Continue processing with custom response writer
+		// 5. Always restore the request body (whether decrypted or original)
+		if bodyBytes != nil {
+			c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
+
+		// 6. Continue processing with custom response writer
 		writer := &cryptoResponseWriter{
 			ResponseWriter: c.Writer,
 			cryptoSvc:      m.cryptoSvc,
