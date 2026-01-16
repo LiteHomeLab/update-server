@@ -48,7 +48,8 @@ func main() {
 	}
 
 	// 初始化认证中间件
-	middleware.InitAuth(cfg.API.UploadToken)
+	tokenSvc := service.NewTokenService(db)
+	authMiddleware := middleware.NewAuthMiddleware(tokenSvc)
 
 	// 初始化加密服务
 	cryptoSvc := service.NewCryptoService(cfg.Crypto.MasterKey)
@@ -64,7 +65,7 @@ func main() {
 	r.Use(cryptoMiddleware.Process())
 
 	// 注册路由
-	setupRoutes(r, db)
+	setupRoutes(r, db, authMiddleware)
 
 	// 启动服务器
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
@@ -74,21 +75,30 @@ func main() {
 	}
 }
 
-func setupRoutes(r *gin.Engine, db *gorm.DB) {
-	// 健康检查
-	r.GET("/api/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
-
-	// 版本相关路由
-	versionHandler := handler.NewVersionHandler(db)
-	api := r.Group("/api")
+func setupRoutes(r *gin.Engine, db *gorm.DB, authMiddleware *middleware.AuthMiddleware) {
+	// 公开路由
+	public := r.Group("/api")
 	{
-		api.GET("/version/latest", versionHandler.GetLatestVersion)
-		api.GET("/version/list", versionHandler.GetVersionList)
-		api.GET("/version/:channel/:version", versionHandler.GetVersionDetail)
-		api.POST("/version/upload", middleware.AuthMiddleware(), versionHandler.UploadVersion)
-		api.DELETE("/version/:channel/:version", middleware.AuthMiddleware(), versionHandler.DeleteVersion)
-		api.GET("/download/:channel/:version", versionHandler.DownloadFile)
+		public.GET("/health", func(c *gin.Context) {
+			c.JSON(200, gin.H{"status": "ok"})
+		})
+		public.GET("/version/latest", handler.NewVersionHandler(db).GetLatestVersion)
+		public.GET("/version/list", handler.NewVersionHandler(db).GetVersionList)
+		public.GET("/version/:channel/:version", handler.NewVersionHandler(db).GetVersionDetail)
+	}
+
+	// 认证路由 - 下载
+	download := r.Group("/api")
+	download.Use(authMiddleware.RequireDownload())
+	{
+		download.GET("/download/:channel/:version", handler.NewVersionHandler(db).DownloadFile)
+	}
+
+	// 认证路由 - 上传
+	upload := r.Group("/api")
+	upload.Use(authMiddleware.RequireUpload())
+	{
+		upload.POST("/version/upload", handler.NewVersionHandler(db).UploadVersion)
+		upload.DELETE("/version/:channel/:version", handler.NewVersionHandler(db).DeleteVersion)
 	}
 }
