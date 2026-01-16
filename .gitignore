@@ -44,4 +44,4 @@ datapackages/
 nul
 *.tmp
 
-./claude/
+./claude/*
