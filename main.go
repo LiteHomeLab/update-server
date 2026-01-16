@@ -107,4 +107,37 @@ func setupRoutes(r *gin.Engine, db *gorm.DB, authMiddleware *middleware.AuthMidd
 		upload.GET("/programs", programHandler.ListPrograms)
 		upload.GET("/programs/:programId", programHandler.GetProgram)
 	}
+
+	// 向后兼容路由 - 映射到 docufiller
+	// 保留旧 API 端点以确保向后兼容性
+	deprecationMiddleware := middleware.DeprecationWarning()
+
+	legacy := r.Group("/api/version")
+	legacy.Use(deprecationMiddleware)
+	{
+		// GET /api/version/latest?channel=stable -> /api/programs/docufiller/versions/latest?channel=stable
+		legacy.GET("/latest", func(c *gin.Context) {
+			c.Request.URL.Path = "/api/programs/docufiller/versions/latest"
+			r.HandleContext(c)
+		})
+
+		// GET /api/version/list?channel=stable -> /api/programs/docufiller/versions?channel=stable
+		legacy.GET("/list", func(c *gin.Context) {
+			c.Request.URL.Path = "/api/programs/docufiller/versions"
+			r.HandleContext(c)
+		})
+
+		// POST /api/version/upload -> /api/programs/docufiller/versions
+		legacy.POST("/upload", func(c *gin.Context) {
+			c.Request.URL.Path = "/api/programs/docufiller/versions"
+			r.HandleContext(c)
+		})
+	}
+
+	// 兼容下载路由
+	// GET /api/download/:channel/:version -> /api/programs/docufiller/download/:channel/:version
+	r.GET("/api/download/:channel/:version", deprecationMiddleware, func(c *gin.Context) {
+		c.Request.URL.Path = "/api/programs/docufiller/download/" + c.Param("channel") + "/" + c.Param("version")
+		r.HandleContext(c)
+	})
 }
