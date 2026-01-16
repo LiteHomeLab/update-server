@@ -1,0 +1,23 @@
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+database:
+  path: "./data/versions.db"
+
+storage:
+  basePath: "./data/packages"
+  maxFileSize: 536870912  # 512MB
+
+api:
+  uploadToken: "change-this-token-in-production"
+  corsEnable: true
+
+logger:
+  level: "info"
+  output: "both"
+  filePath: "./logs/server.log"
+  maxSize: 10485760
+  maxBackups: 5
+  maxAge: 30
+  compress: true
