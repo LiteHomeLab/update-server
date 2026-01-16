@@ -13,6 +13,7 @@ type Config struct {
 	Storage  StorageConfig  `yaml:"storage"`
 	API      APIConfig      `yaml:"api"`
 	Logger   LoggerConfig   `yaml:"logger"`
+	Crypto   CryptoConfig   `yaml:"crypto"`
 }
 
 type ServerConfig struct {
@@ -42,6 +43,10 @@ type LoggerConfig struct {
 	MaxBackups int    `yaml:"maxBackups"`
 	MaxAge     int    `yaml:"maxAge"`
 	Compress   bool   `yaml:"compress"`
+}
+
+type CryptoConfig struct {
+	MasterKey string `yaml:"masterKey"`
 }
 
 // Load 从 YAML 文件加载配置

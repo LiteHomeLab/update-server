@@ -11,6 +11,7 @@ import (
 	"docufiller-update-server/internal/logger"
 	"docufiller-update-server/internal/middleware"
 	"docufiller-update-server/internal/models"
+	"docufiller-update-server/internal/service"
 )
 
 func main() {
@@ -49,11 +50,18 @@ func main() {
 	// 初始化认证中间件
 	middleware.InitAuth(cfg.API.UploadToken)
 
+	// 初始化加密服务
+	cryptoSvc := service.NewCryptoService(cfg.Crypto.MasterKey)
+	cryptoMiddleware := middleware.NewCryptoMiddleware(cryptoSvc)
+
 	// 设置 Gin
 	if cfg.Logger.Level != "debug" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.Default()
+
+	// 注册加密中间件
+	r.Use(cryptoMiddleware.Process())
 
 	// 注册路由
 	setupRoutes(r, db)
