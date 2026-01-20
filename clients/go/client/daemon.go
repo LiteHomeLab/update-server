@@ -48,10 +48,16 @@ func (d *DaemonState) GetState() string {
 func (d *DaemonState) SetProgress(downloaded, total int64, speed float64) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
+	var percentage float64
+	if total > 0 {
+		percentage = float64(downloaded) / float64(total) * 100
+	}
+
 	d.Progress = &ProgressInfo{
 		Downloaded: downloaded,
 		Total:      total,
-		Percentage: float64(downloaded) / float64(total) * 100,
+		Percentage: percentage,
 		Speed:      int64(speed),
 	}
 }
@@ -62,10 +68,15 @@ func (d *DaemonState) SetCompleted(filePath string) {
 	defer d.mu.Unlock()
 	d.State = "completed"
 	d.File = filePath
+	d.Error = "" // Clear any previous error
 }
 
 // SetError 设置错误状态
 func (d *DaemonState) SetError(err error) {
+	if err == nil {
+		return
+	}
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.State = "error"
