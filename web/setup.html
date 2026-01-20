@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Server - 初始化配置</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Update Server 初始化向导</h1>
+            <div class="step-indicator">
+                <div class="step active">步骤 1: 基本配置</div>
+                <div class="step">步骤 2: 安全设置</div>
+                <div class="step">步骤 3: 完成</div>
+            </div>
+        </header>
+
+        <main>
+            <!-- 步骤 1: 基本配置 -->
+            <div class="step-content active" id="step1">
+                <h2>基本配置</h2>
+                <form id="setupForm">
+                    <div class="form-group">
+                        <label for="serverName">服务器名称</label>
+                        <input type="text" id="serverName" name="serverName" required
+                               placeholder="例如：生产服务器测试环境">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dataDir">数据目录</label>
+                        <input type="text" id="dataDir" name="dataDir" required
+                               placeholder="例如：C:/update-server/data">
+                        <small class="help-text">存储上传文件、数据库等数据的目录</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="port">服务器端口</label>
+                        <input type="number" id="port" name="port" required min="1" max="65535"
+                               value="8080" placeholder="8080">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="maxFileSize">最大文件大小 (MB)</label>
+                        <input type="number" id="maxFileSize" name="maxFileSize" required min="1" max="1024"
+                               value="100" placeholder="100">
+                        <small class="help-text">单个文件的最大上传大小限制</small>
+                    </div>
+
+                    <div class="form-buttons">
+                        <button type="button" class="btn btn-primary" onclick="nextStep(1)">下一步</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 步骤 2: 安全设置 -->
+            <div class="step-content" id="step2">
+                <h2>安全设置</h2>
+                <form id="securityForm">
+                    <div class="form-group">
+                        <label for="adminUsername">管理员用户名</label>
+                        <input type="text" id="adminUsername" name="adminUsername" required
+                               placeholder="管理员用户名">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="adminPassword">管理员密码</label>
+                        <input type="password" id="adminPassword" name="adminPassword" required
+                               placeholder="至少8位字符">
+                        <div class="password-strength" id="passwordStrength">
+                            <div class="strength-bar"></div>
+                            <span class="strength-text">密码强度：弱</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirmPassword">确认密码</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required
+                               placeholder="再次输入密码">
+                        <div class="error-message" id="passwordError" style="display: none;">两次输入的密码不一致</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="enableTLS" name="enableTLS">
+                            启用 HTTPS/TLS
+                        </label>
+                        <small class="help-text">建议在生产环境中启用</small>
+                    </div>
+
+                    <div class="form-group" id="tlsGroup" style="display: none;">
+                        <label for="certFile">证书文件</label>
+                        <input type="file" id="certFile" name="certFile" accept=".pem,.crt,.cer">
+                        <small class="help-text">PEM 格式的 SSL 证书文件</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="enableAuth" name="enableAuth" checked>
+                            启用身份验证
+                        </label>
+                        <small class="help-text">需要输入用户名密码才能访问</small>
+                    </div>
+
+                    <div class="form-buttons">
+                        <button type="button" class="btn btn-secondary" onclick="nextStep(-1)">上一步</button>
+                        <button type="button" class="btn btn-primary" onclick="nextStep(2)">下一步</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 步骤 3: 完成 -->
+            <div class="step-content" id="step3">
+                <h2>完成配置</h2>
+                <div class="summary">
+                    <h3>配置摘要</h3>
+                    <div id="configSummary" class="summary-content"></div>
+                </div>
+
+                <div class="form-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="nextStep(-1)">上一步</button>
+                    <button type="button" class="btn btn-primary" id="finishBtn" onclick="finishSetup()">完成配置</button>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2024 LiteHomeLab. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <!-- 加载提示 -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>正在保存配置...</p>
+    </div>
+
+    <!-- 成功提示 -->
+    <div class="success-modal" id="successModal" style="display: none;">
+        <div class="modal-content">
+            <h3>配置成功！</h3>
+            <p>服务器配置已成功保存。</p>
+            <button class="btn btn-primary" onclick="window.location.href='/admin'">进入管理后台</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

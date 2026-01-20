@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Server - 管理后台</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-server"></i>
+                <span>Update Server</span>
+            </div>
+            <nav class="nav-menu">
+                <ul>
+                    <li class="nav-item active" data-page="dashboard">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>仪表板</span>
+                    </li>
+                    <li class="nav-item" data-page="files">
+                        <i class="fas fa-folder"></i>
+                        <span>文件管理</span>
+                    </li>
+                    <li class="nav-item" data-page="users">
+                        <i class="fas fa-users"></i>
+                        <span>用户管理</span>
+                    </li>
+                    <li class="nav-item" data-page="settings">
+                        <i class="fas fa-cog"></i>
+                        <span>系统设置</span>
+                    </li>
+                    <li class="nav-item" data-page="logs">
+                        <i class="fas fa-file-alt"></i>
+                        <span>日志查看</span>
+                    </li>
+                    <li class="nav-item" data-page="help">
+                        <i class="fas fa-question-circle"></i>
+                        <span>帮助文档</span>
+                    </li>
+                </ul>
+            </nav>
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="user-details">
+                    <div class="user-name">管理员</div>
+                    <div class="user-role">超级管理员</div>
+                </div>
+                <button class="logout-btn" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    退出
+                </button>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 顶部导航栏 -->
+            <header class="top-nav">
+                <div class="nav-left">
+                    <button class="menu-toggle" id="menuToggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1 id="pageTitle">仪表板</h1>
+                </div>
+                <div class="nav-right">
+                    <div class="status-indicators">
+                        <div class="status-item" title="服务器状态">
+                            <i class="fas fa-circle status-online"></i>
+                            <span>在线</span>
+                        </div>
+                        <div class="status-item" title="内存使用">
+                            <i class="fas fa-memory"></i>
+                            <span id="memoryUsage">45%</span>
+                        </div>
+                        <div class="status-item" title="磁盘使用">
+                            <i class="fas fa-hdd"></i>
+                            <span id="diskUsage">23%</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- 页面内容 -->
+            <div class="page-content" id="pageContent">
+                <!-- 仪表板页面 -->
+                <div class="page active" id="dashboard-page">
+                    <!-- 统计卡片 -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon stat-blue">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>总文件数</h3>
+                                <p class="stat-number" id="totalFiles">1,234</p>
+                                <p class="stat-change">+12% 本月</p>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon stat-green">
+                                <i class="fas fa-download"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>总下载量</h3>
+                                <p class="stat-number" id="totalDownloads">45,678</p>
+                                <p class="stat-change">+8% 本月</p>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon stat-yellow">
+                                <i class="fas fa-hdd"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>存储空间</h3>
+                                <p class="stat-number">12.3 GB / 100 GB</p>
+                                <p class="stat-change">已使用 12.3%</p>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon stat-purple">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>活跃用户</h3>
+                                <p class="stat-number">89</p>
+                                <p class="stat-change">+5 当前在线</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 最近活动 -->
+                    <div class="activity-section">
+                        <h2>最近活动</h2>
+                        <div class="activity-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>时间</th>
+                                        <th>用户</th>
+                                        <th>操作</th>
+                                        <th>文件</th>
+                                        <th>IP地址</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="activityTableBody">
+                                    <tr>
+                                        <td>2024-01-20 14:30</td>
+                                        <td>user@example.com</td>
+                                        <td><span class="badge success">下载</span></td>
+                                        <td>app_v1.2.0.zip</td>
+                                        <td>192.168.1.100</td>
+                                    </tr>
+                                    <tr>
+                                        <td>2024-01-20 14:25</td>
+                                        <td>admin</td>
+                                        <td><span class="badge info">上传</span></td>
+                                        <td>update.zip</td>
+                                        <td>127.0.0.1</td>
+                                    </tr>
+                                    <tr>
+                                        <td>2024-01-20 14:20</td>
+                                        <td>user2@example.com</td>
+                                        <td><span class="badge warning">访问</span></td>
+                                        <td>/</td>
+                                        <td>192.168.1.101</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 存储趋势 -->
+                    <div class="chart-section">
+                        <h2>存储使用趋势</h2>
+                        <div class="chart-container">
+                            <canvas id="storageChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 文件管理页面 -->
+                <div class="page" id="files-page">
+                    <div class="page-header">
+                        <div class="header-left">
+                            <h1>文件管理</h1>
+                            <div class="breadcrumb">
+                                <span>仪表板</span>
+                                <i class="fas fa-chevron-right"></i>
+                                <span class="active">文件管理</span>
+                            </div>
+                        </div>
+                        <div class="header-right">
+                            <button class="btn btn-primary" onclick="uploadFile()">
+                                <i class="fas fa-upload"></i>
+                                上传文件
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 搜索和过滤 -->
+                    <div class="filter-section">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="fileSearch" placeholder="搜索文件...">
+                        </div>
+                        <div class="filter-buttons">
+                            <button class="btn btn-sm btn-secondary active" data-filter="all">全部</button>
+                            <button class="btn btn-sm btn-secondary" data-filter="recent">最近</button>
+                            <button class="btn btn-sm btn-secondary" data-filter="large">大文件</button>
+                            <button class="btn btn-sm btn-secondary" data-filter="popular">热门</button>
+                        </div>
+                    </div>
+
+                    <!-- 文件列表 -->
+                    <div class="file-grid" id="fileGrid">
+                        <div class="file-item">
+                            <div class="file-icon">
+                                <i class="fas fa-file-archive"></i>
+                            </div>
+                            <div class="file-info">
+                                <h3>app_v1.2.0.zip</h3>
+                                <p>45.2 MB • 2024-01-20 14:30</p>
+                                <div class="file-actions">
+                                    <button class="btn btn-sm btn-primary" onclick="downloadFile('app_v1.2.0.zip')">
+                                        <i class="fas fa-download"></i> 下载
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" onclick="shareFile('app_v1.2.0.zip')">
+                                        <i class="fas fa-share"></i> 分享
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteFile('app_v1.2.0.zip')">
+                                        <i class="fas fa-trash"></i> 删除
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="file-stats">
+                                <span>下载: 1,234</span>
+                                <span>大小: 45.2 MB</span>
+                            </div>
+                        </div>
+
+                        <div class="file-item">
+                            <div class="file-icon">
+                                <i class="fas fa-file-image"></i>
+                            </div>
+                            <div class="file-info">
+                                <h3>screenshot.png</h3>
+                                <p>2.1 MB • 2024-01-20 14:25</p>
+                                <div class="file-actions">
+                                    <button class="btn btn-sm btn-primary" onclick="downloadFile('screenshot.png')">
+                                        <i class="fas fa-download"></i> 下载
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" onclick="shareFile('screenshot.png')">
+                                        <i class="fas fa-share"></i> 分享
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteFile('screenshot.png')">
+                                        <i class="fas fa-trash"></i> 删除
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="file-stats">
+                                <span>下载: 89</span>
+                                <span>大小: 2.1 MB</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 其他页面内容 -->
+                <div class="page" id="users-page">
+                    <div class="page-header">
+                        <div class="header-left">
+                            <h1>用户管理</h1>
+                        </div>
+                        <div class="header-right">
+                            <button class="btn btn-primary" onclick="addUser()">
+                                <i class="fas fa-user-plus"></i>
+                                添加用户
+                            </button>
+                        </div>
+                    </div>
+                    <div class="placeholder-content">
+                        <i class="fas fa-users"></i>
+                        <h2>用户管理功能</h2>
+                        <p>这里将显示用户列表、权限管理等功能。</p>
+                    </div>
+                </div>
+
+                <div class="page" id="settings-page">
+                    <div class="page-header">
+                        <div class="header-left">
+                            <h1>系统设置</h1>
+                        </div>
+                    </div>
+                    <div class="placeholder-content">
+                        <i class="fas fa-cog"></i>
+                        <h2>系统设置功能</h2>
+                        <p>这里将显示服务器配置、安全设置等功能。</p>
+                    </div>
+                </div>
+
+                <div class="page" id="logs-page">
+                    <div class="page-header">
+                        <div class="header-left">
+                            <h1>日志查看</h1>
+                        </div>
+                    </div>
+                    <div class="placeholder-content">
+                        <i class="fas fa-file-alt"></i>
+                        <h2>日志查看功能</h2>
+                        <p>这里将显示系统日志、访问记录等功能。</p>
+                    </div>
+                </div>
+
+                <div class="page" id="help-page">
+                    <div class="page-header">
+                        <div class="header-left">
+                            <h1>帮助文档</h1>
+                        </div>
+                    </div>
+                    <div class="placeholder-content">
+                        <i class="fas fa-question-circle"></i>
+                        <h2>帮助文档功能</h2>
+                        <p>这里将显示使用说明、API文档等功能。</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 上传文件模态框 -->
+    <div class="modal" id="uploadModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>上传文件</h2>
+                <button class="close-btn" onclick="closeModal('uploadModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>拖拽文件到此处或点击选择文件</p>
+                    <input type="file" id="fileInput" multiple style="display: none;">
+                </div>
+                <div class="upload-progress" id="uploadProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <p class="progress-text">上传中... 0%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
