@@ -72,7 +72,17 @@ func runCheck(cmd *cobra.Command, args []string) error {
 }
 
 func runDownload(cmd *cobra.Command, args []string) error {
-	// Implementation will be added in Task 4
-	fmt.Println("download command - to be implemented")
-	return nil
+	// Load config
+	cfg, err := client.LoadConfig(cfgFile)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Get version flag
+	version, _ := cmd.Flags().GetString("version")
+	outputPath, _ := cmd.Flags().GetString("output")
+
+	// Create checker and run
+	checker := client.NewUpdateChecker(cfg, jsonOutput)
+	return checker.DownloadWithOutput(version, outputPath)
 }

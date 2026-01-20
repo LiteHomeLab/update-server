@@ -3,13 +3,130 @@ package client
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
+
+// DownloadResult 下载结果
+type DownloadResult struct {
+	Success   bool   `json:"success"`
+	File      string `json:"file"`
+	FileSize  int64  `json:"fileSize"`
+	Verified  bool   `json:"verified"`
+	Decrypted bool   `json:"decrypted"`
+}
+
+// DownloadWithOutput 下载更新并输出结果
+func (c *UpdateChecker) DownloadWithOutput(version string, outputPath string) error {
+	if outputPath == "" {
+		outputPath = c.generateOutputPath(version)
+	}
+
+	// Download
+	fmt.Printf("✓ Starting download: %s\n", filepath.Base(outputPath))
+	info, err := c.CheckUpdate("")
+	if err != nil {
+		return c.outputError(err)
+	}
+	if info != nil {
+		fmt.Printf("  Size: %.1f MB\n", float64(info.FileSize)/1024/1024)
+	}
+
+	if err := c.DownloadUpdate(version, outputPath, c.progressCallback); err != nil {
+		return c.outputError(err)
+	}
+
+	// Verify
+	verified := true
+	if info != nil && info.FileHash != "" {
+		verified, _ = c.VerifyFile(outputPath, info.FileHash)
+		if !verified {
+			return c.outputError(fmt.Errorf("verification failed"))
+		}
+	}
+
+	// Decrypt if key is available
+	decrypted := false
+	if c.config.Auth.EncryptionKey != "" {
+		decryptor, err := NewDecryptor(c.config.Auth.EncryptionKey)
+		if err == nil {
+			// Decrypt to same path (in-place)
+			if err := decryptor.DecryptFile(outputPath, outputPath); err == nil {
+				decrypted = true
+			}
+		}
+	}
+
+	return c.outputDownloadResult(outputPath, decrypted, verified)
+}
+
+func (c *UpdateChecker) generateOutputPath(version string) string {
+	baseName := "app"
+	if c.config.Program.ID != "" {
+		baseName = c.config.Program.ID
+	}
+
+	switch c.config.Download.Naming {
+	case "version":
+		return fmt.Sprintf("%s/%s-v%s.zip", c.config.GetSavePath(), baseName, version)
+	case "date":
+		return fmt.Sprintf("%s/%s-%s.zip", c.config.GetSavePath(), baseName, time.Now().Format("2006-01-02"))
+	default:
+		return fmt.Sprintf("%s/%s.zip", c.config.GetSavePath(), baseName)
+	}
+}
+
+func (c *UpdateChecker) progressCallback(progress DownloadProgress) {
+	if c.jsonOutput {
+		return // No progress in JSON mode
+	}
+
+	barWidth := 20
+	filled := int(progress.Percentage) / 100 * barWidth / 5
+	if filled > barWidth {
+		filled = barWidth
+	}
+
+	fmt.Printf("\r  Progress: [%-20s] %.1f%% (%.1f/%.1f MB) - %.1f MB/s",
+		strings.Repeat("=", filled),
+		progress.Percentage,
+		float64(progress.Downloaded)/1024/1024,
+		float64(progress.Total)/1024/1024,
+		progress.Speed/1024/1024)
+}
+
+func (c *UpdateChecker) outputDownloadResult(filePath string, decrypted, verified bool) error {
+	if c.jsonOutput {
+		result := &DownloadResult{
+			Success:   true,
+			File:      filePath,
+			Verified:  verified,
+			Decrypted: decrypted,
+		}
+		if info, err := os.Stat(filePath); err == nil {
+			result.FileSize = info.Size()
+		}
+		return json.NewEncoder(os.Stdout).Encode(result)
+	}
+
+	fmt.Println() // New line after progress
+	fmt.Printf("✓ Download completed: %s\n", filePath)
+	if verified {
+		fmt.Printf("✓ Verified: SHA256 matches\n")
+	}
+	if decrypted {
+		fmt.Printf("✓ Decrypted: file ready to use\n")
+	}
+
+	return nil
+}
+
 
 // DownloadUpdate 下载更新包
 func (c *UpdateChecker) DownloadUpdate(version string, destPath string, callback ProgressCallback) error {
@@ -34,7 +151,7 @@ func (c *UpdateChecker) DownloadUpdate(version string, destPath string, callback
 
 func (c *UpdateChecker) downloadOnce(version string, destPath string, callback ProgressCallback) error {
 	url := fmt.Sprintf("%s/api/download/%s/%s/%s",
-		c.config.ServerURL, c.config.ProgramID, c.config.Channel, version)
+		c.config.ServerURL, c.config.GetProgramID(), c.config.Channel, version)
 
 	resp, err := c.httpClient.Get(url)
 	if err != nil {
