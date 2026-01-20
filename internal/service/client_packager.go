@@ -72,6 +72,13 @@ func (p *ClientPackager) GeneratePublishClient(programID, outputDir string) (*Cl
 	}
 	defer os.RemoveAll(tempDir)
 
+	// 复制发布客户端可执行文件
+	publishClientSrc := filepath.Join("./data/clients", "publish-client.exe")
+	publishClientDst := filepath.Join(tempDir, "update-admin.exe")
+	if err := copyFile(publishClientSrc, publishClientDst); err != nil {
+		return nil, fmt.Errorf("复制发布客户端失败: %v", err)
+	}
+
 	// 生成配置文件
 	configContent := generateConfigFile(config)
 	if err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), configContent, 0644); err != nil {
@@ -149,6 +156,16 @@ func (p *ClientPackager) GenerateUpdateClient(programID, outputDir string) (*Cli
 		return nil, fmt.Errorf("创建临时目录失败: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
+
+	// 复制更新客户端可执行文件（如果存在）
+	updateClientSrc := filepath.Join("./data/clients", "update-client.exe")
+	if _, err := os.Stat(updateClientSrc); err == nil {
+		updateClientDst := filepath.Join(tempDir, "update-client.exe")
+		if err := copyFile(updateClientSrc, updateClientDst); err != nil {
+			return nil, fmt.Errorf("复制更新客户端失败: %v", err)
+		}
+	}
+	// 如果更新客户端不存在，会在后续生成说明文档时提示
 
 	// 生成配置文件
 	configContent := generateConfigFile(config)
@@ -359,4 +376,32 @@ func FileHeaderByName(name string) (*zip.FileHeader, error) {
 	}
 
 	return header, nil
+}
+
+// copyFile 复制文件
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	if err != nil {
+		return err
+	}
+
+	// 复制文件权限
+	sourceInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	return os.Chmod(dst, sourceInfo.Mode())
 }
