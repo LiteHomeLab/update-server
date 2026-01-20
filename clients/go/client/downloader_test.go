@@ -13,7 +13,7 @@ func TestDownloadUpdate(t *testing.T) {
 	config.ProgramID = "testapp"
 	config.Channel = "stable"
 
-	checker := NewUpdateChecker(config)
+	checker := NewUpdateChecker(config, false)
 
 	tempDir := t.TempDir()
 	destPath := filepath.Join(tempDir, "downloaded.zip")

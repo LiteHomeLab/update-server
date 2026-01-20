@@ -8,13 +8,13 @@ func TestNewUpdateChecker(t *testing.T) {
 	config := DefaultConfig()
 	config.ProgramID = "testapp"
 
-	checker := NewUpdateChecker(config)
+	checker := NewUpdateChecker(config, false)
 
 	if checker == nil {
 		t.Fatal("NewUpdateChecker returned nil")
 	}
 
-	if checker.config.ProgramID != "testapp" {
-		t.Errorf("ProgramID = %s, want testapp", checker.config.ProgramID)
+	if checker.config.GetProgramID() != "testapp" {
+		t.Errorf("ProgramID = %s, want testapp", checker.config.GetProgramID())
 	}
 }
