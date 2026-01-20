@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+const (
+	STILL_ACTIVE = 259 // Windows process exit code indicating process is still running
+)
+
 // monitorParentProcess 监控父进程存活状态
 func (d *DaemonServer) monitorParentProcess(parentPID int) {
 	ticker := time.NewTicker(5 * time.Second)
@@ -30,7 +34,7 @@ func (d *DaemonServer) monitorParentProcess(parentPID int) {
 // isParentAlive 检查父进程是否存活
 func (d *DaemonServer) isParentAlive(pid int) bool {
 	if pid == 0 {
-		return true // 无法获取父进程 PID，假设存活
+		return true
 	}
 
 	handle, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, uint32(pid))
@@ -41,7 +45,11 @@ func (d *DaemonServer) isParentAlive(pid int) bool {
 
 	var exitCode uint32
 	err = syscall.GetExitCodeProcess(handle, &exitCode)
-	return err == nil && exitCode == 259 // STILL_ACTIVE = 259
+	if err != nil {
+		return false
+	}
+
+	return exitCode == STILL_ACTIVE
 }
 
 // GetParentPID 获取父进程 PID
