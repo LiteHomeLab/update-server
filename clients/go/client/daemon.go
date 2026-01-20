@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"time"
 )
 
 // DaemonState 下载状态
@@ -113,12 +114,13 @@ func (d *DaemonState) ToJSON() map[string]interface{} {
 
 // DaemonServer Daemon HTTP 服务器
 type DaemonServer struct {
-	port       int
-	server     *http.Server
-	state      *DaemonState
-	done       chan struct{}
+	port        int
+	server      *http.Server
+	state       *DaemonState
+	done        chan struct{}
 	shutdownReq bool
-	mu         sync.RWMutex
+	shutdownOnce sync.Once
+	mu          sync.RWMutex
 }
 
 // NewDaemonServer 创建 Daemon 服务器
@@ -137,8 +139,11 @@ func (d *DaemonServer) Start() error {
 	mux.HandleFunc("/shutdown", d.handleShutdown)
 
 	d.server = &http.Server{
-		Addr:    fmt.Sprintf(":%d", d.port),
-		Handler: mux,
+		Addr:         fmt.Sprintf(":%d", d.port),
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	log.Printf("✓ Daemon mode started on port %d\n", d.port)
@@ -154,12 +159,20 @@ func (d *DaemonServer) Start() error {
 
 // handleStatus 处理 /status 请求
 func (d *DaemonServer) handleStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(d.state.ToJSON())
 }
 
 // handleShutdown 处理 /shutdown 请求
 func (d *DaemonServer) handleShutdown(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	d.mu.Lock()
 	if d.shutdownReq {
 		d.mu.Unlock()
@@ -186,12 +199,12 @@ func (d *DaemonServer) handleShutdown(w http.ResponseWriter, r *http.Request) {
 
 // Shutdown 关闭服务器
 func (d *DaemonServer) Shutdown() {
-	select {
-	case <-d.done:
-		return // 已经关闭
-	default:
-	}
-
-	close(d.done)
-	d.server.Close()
+	d.shutdownOnce.Do(func() {
+		if d.server != nil {
+			d.server.Close()
+		}
+		if d.done != nil {
+			close(d.done)
+		}
+	})
 }
