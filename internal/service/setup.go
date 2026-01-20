@@ -66,6 +66,9 @@ func (s *SetupService) InitializeServer(req InitializeRequest) error {
 		return err
 	}
 
+	// TODO: ServerURL 将在后续任务中保存到配置文件
+	// 这是为了让客户端工具下载时能自动填充正确的服务器地址
+
 	return nil
 }
 
