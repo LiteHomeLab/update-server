@@ -1,6 +1,11 @@
 package client
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net"
+	"net/http"
 	"sync"
 )
 
@@ -104,4 +109,89 @@ func (d *DaemonState) ToJSON() map[string]interface{} {
 	}
 
 	return result
+}
+
+// DaemonServer Daemon HTTP 服务器
+type DaemonServer struct {
+	port       int
+	server     *http.Server
+	state      *DaemonState
+	done       chan struct{}
+	shutdownReq bool
+	mu         sync.RWMutex
+}
+
+// NewDaemonServer 创建 Daemon 服务器
+func NewDaemonServer(port int, state *DaemonState) *DaemonServer {
+	return &DaemonServer{
+		port:  port,
+		state: state,
+		done:  make(chan struct{}),
+	}
+}
+
+// Start 启动 HTTP 服务器
+func (d *DaemonServer) Start() error {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/status", d.handleStatus)
+	mux.HandleFunc("/shutdown", d.handleShutdown)
+
+	d.server = &http.Server{
+		Addr:    fmt.Sprintf(":%d", d.port),
+		Handler: mux,
+	}
+
+	log.Printf("✓ Daemon mode started on port %d\n", d.port)
+
+	// 检查端口是否可用
+	listener, err := net.Listen("tcp", d.server.Addr)
+	if err != nil {
+		return fmt.Errorf("port %d is already in use. Try a different port", d.port)
+	}
+
+	return d.server.Serve(listener)
+}
+
+// handleStatus 处理 /status 请求
+func (d *DaemonServer) handleStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(d.state.ToJSON())
+}
+
+// handleShutdown 处理 /shutdown 请求
+func (d *DaemonServer) handleShutdown(w http.ResponseWriter, r *http.Request) {
+	d.mu.Lock()
+	if d.shutdownReq {
+		d.mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "already_shutting_down",
+			"message": "Already shutting down",
+		})
+		return
+	}
+	d.shutdownReq = true
+	d.mu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Server shutting down",
+	})
+
+	// 异步关闭服务器
+	go d.Shutdown()
+}
+
+// Shutdown 关闭服务器
+func (d *DaemonServer) Shutdown() {
+	select {
+	case <-d.done:
+		return // 已经关闭
+	default:
+	}
+
+	close(d.done)
+	d.server.Close()
 }
