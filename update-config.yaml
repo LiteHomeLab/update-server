@@ -1,0 +1,17 @@
+server:
+  url: http://localhost:8080
+  timeout: 30
+
+program:
+  id: docufiller
+  current_version: 0.0.1
+
+download:
+  save_path: ./downloads
+  naming: version
+  keep: 3
+  auto_verify: true
+
+logging:
+  level: info
+  file: update-client.log
