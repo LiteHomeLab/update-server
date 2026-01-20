@@ -91,6 +91,10 @@ func LoadConfig(path string) (*Config, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
+		// If file doesn't exist, return default config
+		if os.IsNotExist(err) {
+			return cfg, nil
+		}
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 

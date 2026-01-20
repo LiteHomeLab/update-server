@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/LiteHomeLab/update-server/clients/go/client"
 )
 
 var (
@@ -36,6 +37,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "update-config.yaml", "config file")
 	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "output JSON format")
 
+	checkCmd.Flags().String("current-version", "", "current version (overrides config)")
+
 	downloadCmd.Flags().String("output", "", "output file path")
 	downloadCmd.Flags().String("version", "", "version to download")
 	downloadCmd.MarkFlagRequired("version")
@@ -51,9 +54,21 @@ func main() {
 }
 
 func runCheck(cmd *cobra.Command, args []string) error {
-	// Implementation will be added in Task 3
-	fmt.Println("check command - to be implemented")
-	return nil
+	// Load config
+	cfg, err := client.LoadConfig(cfgFile)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Get current version from flag or config
+	currentVersion, _ := cmd.Flags().GetString("current-version")
+	if currentVersion == "" {
+		currentVersion = cfg.Program.CurrentVersion
+	}
+
+	// Create checker and run
+	checker := client.NewUpdateChecker(cfg, jsonOutput)
+	return checker.Check(currentVersion)
 }
 
 func runDownload(cmd *cobra.Command, args []string) error {
