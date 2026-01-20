@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"docufiller-update-server/internal/logger"
+	"docufiller-update-server/internal/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
@@ -73,4 +74,15 @@ func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (stri
 	} else {
 		logger.Debugf("SQL: %s, duration: %v", sql, elapsed)
 	}
+}
+
+// AutoMigrate 自动迁移数据库模型
+func AutoMigrate(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&models.Program{},
+		&models.Version{},
+		&models.Token{},
+		&models.AdminUser{},
+		&models.EncryptionKey{},
+	)
 }
