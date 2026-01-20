@@ -24,21 +24,34 @@ type DownloadResult struct {
 
 // DownloadWithOutput 下载更新并输出结果
 func (c *UpdateChecker) DownloadWithOutput(version string, outputPath string) error {
+	// 设置初始状态
+	if c.daemonState != nil {
+		c.daemonState.SetState("idle")
+	}
+
 	if outputPath == "" {
 		outputPath = c.generateOutputPath(version)
 	}
 
 	// Download
-	fmt.Printf("✓ Starting download: %s\n", filepath.Base(outputPath))
+	if !c.jsonOutput {
+		fmt.Printf("✓ Starting download: %s\n", filepath.Base(outputPath))
+	}
 	info, err := c.CheckUpdate("")
 	if err != nil {
+		if c.daemonState != nil {
+			c.daemonState.SetError(err)
+		}
 		return c.outputError(err)
 	}
-	if info != nil {
+	if info != nil && !c.jsonOutput {
 		fmt.Printf("  Size: %.1f MB\n", float64(info.FileSize)/1024/1024)
 	}
 
 	if err := c.DownloadUpdate(version, outputPath, c.progressCallback); err != nil {
+		if c.daemonState != nil {
+			c.daemonState.SetError(err)
+		}
 		return c.outputError(err)
 	}
 
@@ -47,7 +60,11 @@ func (c *UpdateChecker) DownloadWithOutput(version string, outputPath string) er
 	if info != nil && info.FileHash != "" {
 		verified, _ = c.VerifyFile(outputPath, info.FileHash)
 		if !verified {
-			return c.outputError(fmt.Errorf("verification failed"))
+			err := fmt.Errorf("verification failed")
+			if c.daemonState != nil {
+				c.daemonState.SetError(err)
+			}
+			return c.outputError(err)
 		}
 	}
 
@@ -56,7 +73,6 @@ func (c *UpdateChecker) DownloadWithOutput(version string, outputPath string) er
 	if c.config.Auth.EncryptionKey != "" {
 		decryptor, err := NewDecryptor(c.config.Auth.EncryptionKey)
 		if err == nil {
-			// Decrypt to same path (in-place)
 			if err := decryptor.DecryptFile(outputPath, outputPath); err == nil {
 				decrypted = true
 			}
