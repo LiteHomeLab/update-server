@@ -45,3 +45,4 @@ nul
 *.tmp
 
 .claude
+**/obj/
