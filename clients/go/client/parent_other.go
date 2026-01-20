@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// monitorParentProcess 监控父进程存活状态（非 Windows 平台）
-func (d *DaemonServer) monitorParentProcess(parentPID int) {
+// MonitorParentProcess 监控父进程存活状态（非 Windows 平台）
+func (d *DaemonServer) MonitorParentProcess(parentPID int) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 

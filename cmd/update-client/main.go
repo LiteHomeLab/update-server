@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/LiteHomeLab/update-server/clients/go/client"
@@ -11,6 +12,8 @@ import (
 var (
 	cfgFile    string
 	jsonOutput bool
+	daemonMode bool
+	daemonPort int
 )
 
 var rootCmd = &cobra.Command{
@@ -41,6 +44,8 @@ func init() {
 
 	downloadCmd.Flags().String("output", "", "output file path")
 	downloadCmd.Flags().String("version", "", "version to download")
+	downloadCmd.Flags().BoolVar(&daemonMode, "daemon", false, "enable daemon mode (HTTP server)")
+	downloadCmd.Flags().IntVar(&daemonPort, "port", 0, "HTTP server port (required with --daemon)")
 	downloadCmd.MarkFlagRequired("version")
 
 	rootCmd.AddCommand(checkCmd, downloadCmd)
@@ -78,11 +83,63 @@ func runDownload(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Get version flag
+	// Get flags
 	version, _ := cmd.Flags().GetString("version")
 	outputPath, _ := cmd.Flags().GetString("output")
+	daemon, _ := cmd.Flags().GetBool("daemon")
+	port, _ := cmd.Flags().GetInt("port")
 
-	// Create checker and run
+	// 验证 Daemon 模式参数
+	if daemon && port == 0 {
+		return fmt.Errorf("--port is required when using --daemon")
+	}
+
+	// Daemon 模式
+	if daemon {
+		return runDaemonDownload(cfg, version, outputPath, port)
+	}
+
+	// 普通模式
 	checker := client.NewUpdateChecker(cfg, jsonOutput)
 	return checker.DownloadWithOutput(version, outputPath)
+}
+
+func runDaemonDownload(cfg *client.Config, version, outputPath string, port int) error {
+	// 创建状态管理器
+	state := client.NewDaemonState(version)
+
+	// 创建并启动 Daemon 服务器
+	server := client.NewDaemonServer(port, state)
+
+	// 创建 checker 并设置 daemonState
+	checker := client.NewUpdateChecker(cfg, false)
+	checker.SetDaemonState(state)
+
+	// 启动父进程监控
+	parentPID := client.GetParentPID()
+	go server.MonitorParentProcess(parentPID)
+
+	// 在后台启动 HTTP 服务器
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- server.Start()
+	}()
+
+	// 等待服务器启动或失败
+	select {
+	case err := <-serverErr:
+		if err != nil {
+			return fmt.Errorf("failed to start daemon server: %w", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		// 服务器启动成功
+	}
+
+	// 执行下载
+	downloadErr := checker.DownloadWithOutput(version, outputPath)
+
+	// 等待 shutdown 信号
+	<-server.Done()
+
+	return downloadErr
 }

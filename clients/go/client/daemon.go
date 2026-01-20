@@ -208,3 +208,8 @@ func (d *DaemonServer) Shutdown() {
 		}
 	})
 }
+
+// Done 返回 shutdown 信号通道
+func (d *DaemonServer) Done() <-chan struct{} {
+	return d.done
+}
