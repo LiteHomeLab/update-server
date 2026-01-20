@@ -58,48 +58,58 @@ func (s *ProgramService) DeleteProgram(programID string) error {
 
 // CreateProgramWithOptions 创建程序并生成密钥和Token
 func (s *ProgramService) CreateProgramWithOptions(req CreateProgramRequest) (*CreateProgramResponse, error) {
-	// 创建程序
-	program := &models.Program{
-		ProgramID:   req.ProgramID,
-		Name:        req.Name,
-		Description: req.Description,
-		IsActive:    true,
-	}
-	if err := s.db.Create(program).Error; err != nil {
-		return nil, err
-	}
+	var response CreateProgramResponse
 
-	// 生成加密密钥
-	encryptionKey, err := s.GenerateEncryptionKey()
+	// 使用事务确保原子性
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		// 创建程序
+		program := &models.Program{
+			ProgramID:   req.ProgramID,
+			Name:        req.Name,
+			Description: req.Description,
+			IsActive:    true,
+		}
+		if err := tx.Create(program).Error; err != nil {
+			return err
+		}
+		response.Program = program
+
+		// 生成加密密钥
+		encryptionKey, err := s.GenerateEncryptionKey()
+		if err != nil {
+			return err
+		}
+		keyRecord := &models.EncryptionKey{
+			ProgramID: program.ProgramID,
+			KeyData:   encryptionKey,
+		}
+		if err := tx.Create(keyRecord).Error; err != nil {
+			return err
+		}
+		response.EncryptionKey = encryptionKey
+
+		// 生成上传Token
+		_, uploadToken, err := s.tokenService.GenerateToken(program.ProgramID, "upload", "system")
+		if err != nil {
+			return err
+		}
+		response.UploadToken = uploadToken
+
+		// 生成下载Token
+		_, downloadToken, err := s.tokenService.GenerateToken(program.ProgramID, "download", "system")
+		if err != nil {
+			return err
+		}
+		response.DownloadToken = downloadToken
+
+		return nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
-	keyRecord := &models.EncryptionKey{
-		ProgramID: program.ProgramID,
-		KeyData:   encryptionKey,
-	}
-	if err := s.db.Create(keyRecord).Error; err != nil {
-		return nil, err
-	}
 
-	// 生成上传Token
-	_, uploadToken, err := s.tokenService.GenerateToken(program.ProgramID, "upload", "system")
-	if err != nil {
-		return nil, err
-	}
-
-	// 生成下载Token
-	_, downloadToken, err := s.tokenService.GenerateToken(program.ProgramID, "download", "system")
-	if err != nil {
-		return nil, err
-	}
-
-	return &CreateProgramResponse{
-		Program:       program,
-		EncryptionKey: encryptionKey,
-		UploadToken:   uploadToken,
-		DownloadToken: downloadToken,
-	}, nil
+	return &response, nil
 }
 
 // GenerateEncryptionKey 生成32字节随机密钥
