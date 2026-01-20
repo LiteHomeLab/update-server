@@ -1,16 +1,18 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"update-server/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 type AdminHandler struct {
-	programService *service.ProgramService
-	versionService *service.VersionService
-	tokenService   *service.TokenService
-	setupService   *service.SetupService
+	programService      *service.ProgramService
+	versionService     *service.VersionService
+	tokenService       *service.TokenService
+	setupService       *service.SetupService
+	clientPackagerService *service.ClientPackager
 }
 
 func NewAdminHandler(
@@ -18,12 +20,14 @@ func NewAdminHandler(
 	versionService *service.VersionService,
 	tokenService *service.TokenService,
 	setupService *service.SetupService,
+	clientPackagerService *service.ClientPackager,
 ) *AdminHandler {
 	return &AdminHandler{
-		programService: programService,
-		versionService: versionService,
-		tokenService:   tokenService,
-		setupService:   setupService,
+		programService:      programService,
+		versionService:     versionService,
+		tokenService:       tokenService,
+		setupService:       setupService,
+		clientPackagerService: clientPackagerService,
 	}
 }
 
@@ -90,7 +94,7 @@ func (h *AdminHandler) GetProgramDetail(c *gin.Context) {
 func (h *AdminHandler) DeleteProgram(c *gin.Context) {
 	programID := c.Param("programId")
 
-	if err := h.programService.Delete(programID); err != nil {
+	if err := h.programService.DeleteProgram(programID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -116,10 +120,84 @@ func (h *AdminHandler) DeleteVersion(c *gin.Context) {
 	programID := c.Param("programId")
 	version := c.Param("version")
 
-	if err := h.versionService.Delete(programID, version); err != nil {
+	if err := h.versionService.DeleteVersion(programID, "", version); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// DownloadPublishClient 下载发布客户端包
+func (h *AdminHandler) DownloadPublishClient(c *gin.Context) {
+	programID := c.Param("programId")
+
+	// 生成发布客户端包
+	result, err := h.clientPackagerService.GeneratePublishClient(programID, "./temp")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 返回文件下载
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"",
+		fmt.Sprintf("%s-client-publish.zip", result.ProgramName)))
+	c.Header("Content-Type", "application/zip")
+	c.File(result.PackagePath)
+}
+
+// DownloadUpdateClient 下载更新客户端包
+func (h *AdminHandler) DownloadUpdateClient(c *gin.Context) {
+	programID := c.Param("programId")
+
+	// 生成更新客户端包
+	result, err := h.clientPackagerService.GenerateUpdateClient(programID, "./temp")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 返回文件下载
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"",
+		fmt.Sprintf("%s-client-update.zip", result.ProgramName)))
+	c.Header("Content-Type", "application/zip")
+	c.File(result.PackagePath)
+}
+
+// RegenerateToken 重新生成指定类型的 Token
+func (h *AdminHandler) RegenerateToken(c *gin.Context) {
+	programID := c.Param("programId")
+	tokenType := c.Query("type")
+
+	if tokenType != "upload" && tokenType != "download" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token type, must be 'upload' or 'download'"})
+		return
+	}
+
+	token, tokenValue, err := h.tokenService.RegenerateToken(programID, tokenType, "admin")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"tokenID": token.TokenID,
+		"token":   tokenValue,
+		"type":    tokenType,
+	})
+}
+
+// RegenerateEncryptionKey 重新生成加密密钥
+func (h *AdminHandler) RegenerateEncryptionKey(c *gin.Context) {
+	programID := c.Param("programId")
+
+	newKey, err := h.programService.RegenerateEncryptionKey(programID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"encryptionKey": newKey,
+	})
 }

@@ -37,6 +37,11 @@ func (s *VersionService) GetVersionList(programID, channel string) ([]models.Ver
 	return versions, err
 }
 
+// ListByProgramID 根据程序ID列出所有版本
+func (s *VersionService) ListByProgramID(programID string) ([]models.Version, error) {
+	return s.GetVersionList(programID, "")
+}
+
 // GetVersion 获取指定版本
 func (s *VersionService) GetVersion(programID, channel, version string) (*models.Version, error) {
 	var v models.Version
@@ -53,9 +58,9 @@ func (s *VersionService) CreateVersion(version *models.Version) error {
 	return s.db.Create(version).Error
 }
 
-// DeleteVersion 删除版本
+// DeleteVersion 删除版本（硬删除，允许重新上传相同版本）
 func (s *VersionService) DeleteVersion(programID, channel, version string) error {
-	return s.db.Where("program_id = ? AND channel = ? AND version = ?", programID, channel, version).Delete(&models.Version{}).Error
+	return s.db.Unscoped().Where("program_id = ? AND channel = ? AND version = ?", programID, channel, version).Delete(&models.Version{}).Error
 }
 
 // IncrementDownloadCount 增加下载计数

@@ -100,6 +100,24 @@ func (s *TokenService) RevokeToken(tokenID string) error {
 		Update("is_active", false).Error
 }
 
+// RegenerateToken 重新生成指定类型的 Token
+func (s *TokenService) RegenerateToken(programID, tokenType, createdBy string) (*models.Token, string, error) {
+	// 先撤销旧的 Token
+	if err := s.RevokeTokenByType(programID, tokenType); err != nil {
+		return nil, "", err
+	}
+
+	// 生成新 Token
+	return s.GenerateToken(programID, tokenType, createdBy)
+}
+
+// RevokeTokenByType 根据类型撤销 Token
+func (s *TokenService) RevokeTokenByType(programID, tokenType string) error {
+	return s.db.Model(&models.Token{}).
+		Where("program_id = ? AND token_type = ?", programID, tokenType).
+		Update("is_active", false).Error
+}
+
 func (s *TokenService) updateLastUsed(tokenID uint) {
 	s.db.Model(&models.Token{}).
 		Where("id = ?", tokenID).
