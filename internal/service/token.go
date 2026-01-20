@@ -34,6 +34,7 @@ func (s *TokenService) GenerateToken(programID, tokenType, createdBy string) (*m
 
 	token := &models.Token{
 		TokenID:   tokenID,
+		TokenValue: tokenValue,
 		ProgramID: programID,
 		TokenType: tokenType,
 		CreatedBy: createdBy,
@@ -116,6 +117,25 @@ func (s *TokenService) RevokeTokenByType(programID, tokenType string) error {
 	return s.db.Model(&models.Token{}).
 		Where("program_id = ? AND token_type = ?", programID, tokenType).
 		Update("is_active", false).Error
+}
+
+// GetToken 获取指定程序的 Token
+func (s *TokenService) GetToken(programID, tokenType, createdBy string) (*models.Token, error) {
+	var token models.Token
+	err := s.db.Where("program_id = ? AND token_type = ? AND is_active = ?", programID, tokenType, true).
+		First(&token).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 如果没有找到 Token，创建一个新的
+			newToken, _, err := s.GenerateToken(programID, tokenType, createdBy)
+			if err != nil {
+				return nil, err
+			}
+			return newToken, nil
+		}
+		return nil, err
+	}
+	return &token, nil
 }
 
 func (s *TokenService) updateLastUsed(tokenID uint) {

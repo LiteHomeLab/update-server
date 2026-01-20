@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"docufiller-update-server/internal/config"
 	"docufiller-update-server/internal/database"
 	"docufiller-update-server/internal/handler"
@@ -12,7 +12,6 @@ import (
 	"docufiller-update-server/internal/middleware"
 	"docufiller-update-server/internal/models"
 	"docufiller-update-server/internal/service"
-	"docufiller-update-server/web"
 )
 
 func main() {
@@ -65,38 +64,27 @@ func main() {
 	// 注册加密中间件
 	r.Use(cryptoMiddleware.Process())
 
-	// 注册路由
-	setupRoutes(r, db, authMiddleware)
-
-	// 启动服务器
-	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	logger.Infof("Server listening on %s", addr)
-	if err := r.Run(addr); err != nil {
-		logger.Fatalf("Failed to start server: %v", err)
-	}
-}
-
-func setupRoutes(r *gin.Engine, db *gorm.DB, authMiddleware *middleware.AuthMiddleware) {
-	// 初始化所有 handler
+	// 初始化服务
+	storageService := service.NewStorageService(cfg.Storage.BasePath)
+	programService := service.NewProgramService(db)
+	versionService := service.NewVersionService(db, storageService)
 	setupService := service.NewSetupService(db)
+	clientPackagerService := service.NewClientPackager(programService)
+
+	// 初始化 handlers
 	setupHandler := handler.NewSetupHandler(setupService)
 	authHandler := handler.NewAuthHandler(db)
-
-	programService := service.NewProgramService(db)
-	versionService := service.NewVersionService(db)
-	tokenService := service.NewTokenService(db)
-	clientPackagerService := service.NewClientPackager(db)
 
 	adminHandler := handler.NewAdminHandler(
 		programService,
 		versionService,
-		tokenService,
+		tokenSvc,
 		setupService,
 		clientPackagerService,
 	)
 
-	// 静态文件服务 - 使用嵌入的 web 包
-	r.StaticFS("/", web.Files)
+	// 静态文件服务 - 使用本地文件系统（开发阶段）
+	r.StaticFS("/", http.Dir("./web"))
 
 	// 检查初始化状态
 	initialized, err := setupService.IsInitialized()
@@ -270,4 +258,11 @@ func setupRoutes(r *gin.Engine, db *gorm.DB, authMiddleware *middleware.AuthMidd
 		c.Request.URL.Path = "/api/programs/docufiller/download/" + c.Param("channel") + "/" + c.Param("version")
 		r.HandleContext(c)
 	})
+
+	// 启动服务器
+	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+	logger.Infof("Server listening on %s", addr)
+	if err := r.Run(addr); err != nil {
+		logger.Fatalf("Failed to start server: %v", err)
+	}
 }

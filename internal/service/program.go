@@ -46,6 +46,16 @@ func (s *ProgramService) ListPrograms() ([]models.Program, error) {
 	return programs, err
 }
 
+// ListAll 列出所有程序（别名方法）
+func (s *ProgramService) ListAll() ([]models.Program, error) {
+	return s.ListPrograms()
+}
+
+// GetByProgramID 根据程序ID获取程序
+func (s *ProgramService) GetByProgramID(programID string) (*models.Program, error) {
+	return s.GetProgramByID(programID)
+}
+
 // UpdateProgram 更新程序
 func (s *ProgramService) UpdateProgram(program *models.Program) error {
 	return s.db.Save(program).Error

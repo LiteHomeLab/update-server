@@ -2,7 +2,7 @@ package handler
 
 import (
 	"net/http"
-	"update-server/internal/service"
+	"docufiller-update-server/internal/service"
 	"github.com/gin-gonic/gin"
 )
 

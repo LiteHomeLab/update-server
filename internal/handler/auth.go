@@ -2,7 +2,7 @@ package handler
 
 import (
 	"net/http"
-	"update-server/internal/models"
+	"docufiller-update-server/internal/models"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )

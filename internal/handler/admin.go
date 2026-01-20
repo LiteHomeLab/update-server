@@ -3,7 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
-	"update-server/internal/service"
+	"docufiller-update-server/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -79,8 +79,8 @@ func (h *AdminHandler) GetProgramDetail(c *gin.Context) {
 	}
 
 	encryptionKey, _ := h.programService.GetProgramEncryptionKey(programID)
-	uploadToken, _ := h.tokenService.GetToken(programID, "upload")
-	downloadToken, _ := h.tokenService.GetToken(programID, "download")
+	uploadToken, _ := h.tokenService.GetToken(programID, "upload", "admin")
+	downloadToken, _ := h.tokenService.GetToken(programID, "download", "admin")
 
 	c.JSON(http.StatusOK, gin.H{
 		"program":       program,
