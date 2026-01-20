@@ -6,17 +6,44 @@ Update Server 是一个通用的应用程序自动更新服务器，支持多程
 
 ### 一、部署服务器
 
-1. **下载并解压**
-   ```
-   解压 update-server.zip 到服务器目录
-   ```
+1. **编译所有组件**
 
-2. **运行服务器**
+   运行一键编译脚本：
    ```bash
-   ./update-server.exe
+   build-all.bat
    ```
 
-3. **完成初始化向导**
+   这将编译：
+   - `bin/update-server.exe` - 服务器主程序
+   - `bin/clients/update-admin.exe` - 发布客户端（用于上传版本）
+
+2. **服务器部署目录结构**
+
+   ```
+   update-server/
+   ├── update-server.exe          # 服务器主程序
+   ├── config.yaml                 # 服务器配置文件（自动生成）
+   ├── data/
+   │   ├── versions.db            # 数据库文件（自动生成）
+   │   ├── packages/              # 版本包存储目录（自动生成）
+   │   │   ├── stable/            # 稳定版
+   │   │   └── beta/              # 测试版
+   │   └── clients/               # 客户端工具目录（需手动创建）
+   │       ├── publish-client.exe # 发布客户端（从 bin/clients/ 复制）
+   │       └── update-client.exe  # 更新客户端（可选，暂未实现）
+   └── logs/                      # 日志目录（自动生成）
+   ```
+
+   **重要**：
+   - 运行服务器前，确保创建 `data/clients/` 目录
+   - 将编译好的 `bin/clients/update-admin.exe` 复制到 `data/clients/publish-client.exe`
+
+3. **运行服务器**
+   ```bash
+   ./bin/update-server.exe
+   ```
+
+4. **完成初始化向导**
    - 浏览器会自动打开 `http://localhost:8080/setup`
    - 按照向导完成配置：
      - 步骤1：基本配置（服务器名称、端口、数据目录）
@@ -51,29 +78,48 @@ Update Server 是一个通用的应用程序自动更新服务器，支持多程
 
 1. **下载发布客户端**
    - 在程序详情页点击「下载发布端」
-   - 解压 `程序名-publish-client.zip`
-   - 包含：`publish-client.exe` + `publish-config.yaml` + `README.md`
+   - 解压 `程序名-client-publish.zip`
+   - 包含：
+     - `update-admin.exe` - 发布客户端命令行工具
+     - `config.yaml` - 预配置的配置文件（已包含 Token 和密钥）
+     - `README.md` - 使用说明
 
 2. **配置发布客户端**
 
-   编辑 `publish-config.yaml`：
+   配置文件 `config.yaml` 已自动生成，包含必要的服务器地址、Token 和密钥。
+   如需修改，可编辑配置文件：
+
    ```yaml
-   server: "http://your-server:8080"        # 服务器地址
-   programId: "docufiller"                  # 程序ID
-   uploadToken: "ul_xxxxxxxxxxxxx"          # Upload Token
-   encryption:
-     enabled: true
-     key: "base64编码的密钥"                # Encryption Key
-   file: "./app-v1.0.0.zip"                 # 要发布的文件
-   version: "1.0.0"                         # 版本号
-   channel: "stable"                        # stable 或 beta
-   changelog: "更新说明"                    # 发布说明
+   server:
+     url: "http://your-server:8080"
+     timeout: 30
+
+   program:
+     id: "docufiller"
+
+   auth:
+     token: "ul_xxxxxxxxxxxxx"       # Upload Token（已预配置）
+     encryption_key: "base64..."     # Encryption Key（已预配置）
    ```
 
 3. **执行发布**
+
+   使用命令行上传版本：
+
    ```bash
-   publish-client.exe
+   update-admin.exe upload --channel stable --version 1.0.0 --file ./app.zip --notes "发布说明"
    ```
+
+   或使用配置文件：
+
+   ```bash
+   update-admin.exe --server http://your-server:8080 --token ul_xxx upload --program-id docufiller --channel stable --version 1.0.0 --file ./app.zip
+   ```
+
+   支持的命令：
+   - `upload` - 上传新版本
+   - `list` - 列出版本
+   - `delete` - 删除版本
 
 4. **验证发布**
    - 在Web管理后台的「版本列表」中查看新版本
@@ -83,24 +129,29 @@ Update Server 是一个通用的应用程序自动更新服务器，支持多程
 
 1. **下载更新客户端**
    - 在程序详情页点击「下载更新端」
-   - 解压 `程序名-update-client.zip`
-   - 包含：`update-client.exe` + `update-config.yaml` + `README.md`
+   - 解压 `程序名-client-update.zip`
+   - 包含：
+     - `update-client.exe` - 更新客户端工具（可选，如已实现）
+     - `config.yaml` - 预配置的配置文件
+     - `README.md` - 使用说明
+
+   **注意**：当前版本更新客户端为可选组件，如未实现，下载的包将仅包含配置文件。
 
 2. **配置更新客户端**
 
-   编辑 `update-config.yaml`：
+   配置文件 `config.yaml` 已自动生成：
+
    ```yaml
-   server: "http://your-server:8080"        # 服务器地址
-   programId: "docufiller"                  # 程序ID
-   downloadToken: "dl_xxxxxxxxxxxxx"        # Download Token
-   encryption:
-     enabled: true
-     key: "base64编码的密钥"                # Encryption Key
-   check:
-     channel: "stable"                       # 检查的渠道
-     autoDownload: true                      # 是否自动下载
-   download:
-     outputPath: "./updates"                 # 下载目录
+   server:
+     url: "http://your-server:8080"
+     timeout: 30
+
+   program:
+     id: "docufiller"
+
+   auth:
+     token: "dl_xxxxxxxxxxxxx"       # Download Token（已预配置）
+     encryption_key: "base64..."     # Encryption Key（已预配置）
    ```
 
 3. **检查更新**
