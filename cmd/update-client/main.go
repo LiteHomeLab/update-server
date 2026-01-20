@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -128,11 +129,11 @@ func runDaemonDownload(cfg *client.Config, version, outputPath string, port int)
 	// 等待服务器启动或失败
 	select {
 	case err := <-serverErr:
-		if err != nil {
-			return fmt.Errorf("failed to start daemon server: %w", err)
-		}
-	case <-time.After(500 * time.Millisecond):
-		// 服务器启动成功
+		// 服务器启动失败
+		return fmt.Errorf("failed to start daemon server: %w", err)
+	case <-time.After(5 * time.Second):
+		// 超时 - 假设服务器成功启动（Start() 是阻塞调用）
+		log.Printf("Daemon server started on port %d\n", port)
 	}
 
 	// 执行下载
