@@ -150,6 +150,11 @@ func (c *UpdateChecker) DownloadUpdate(version string, destPath string, callback
 }
 
 func (c *UpdateChecker) downloadOnce(version string, destPath string, callback ProgressCallback) error {
+	// 设置状态为 downloading
+	if c.daemonState != nil {
+		c.daemonState.SetState("downloading")
+	}
+
 	url := fmt.Sprintf("%s/api/download/%s/%s/%s",
 		c.config.ServerURL, c.config.GetProgramID(), c.config.Channel, version)
 
@@ -214,13 +219,20 @@ func (c *UpdateChecker) downloadOnce(version string, destPath string, callback P
 					speed = 0
 				}
 
-				callback(DownloadProgress{
+				progress := DownloadProgress{
 					Version:    version,
 					Downloaded: downloaded,
 					Total:      total,
 					Percentage: float64(downloaded) / float64(total) * 100,
 					Speed:      speed,
-				})
+				}
+
+				callback(progress)
+
+				// 更新 Daemon 状态（如果存在）
+				if c.daemonState != nil {
+					c.daemonState.SetProgress(downloaded, total, speed)
+				}
 			}
 		}
 
@@ -236,6 +248,10 @@ func (c *UpdateChecker) downloadOnce(version string, destPath string, callback P
 		}
 	}
 
+	// 下载成功
+	if c.daemonState != nil {
+		c.daemonState.SetCompleted(destPath)
+	}
 	return nil
 }
 

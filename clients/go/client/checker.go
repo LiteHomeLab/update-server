@@ -10,9 +10,11 @@ import (
 
 // UpdateChecker 更新检查器
 type UpdateChecker struct {
-	config     *Config
-	httpClient *http.Client
-	jsonOutput bool
+	config      *Config
+	httpClient  *http.Client
+	jsonOutput  bool
+	maxRetries  int
+	daemonState *DaemonState // Daemon 状态管理器
 }
 
 // NewUpdateChecker 创建更新检查器
@@ -161,4 +163,9 @@ func (c *UpdateChecker) outputError(err error) error {
 	}
 
 	return err
+}
+
+// SetDaemonState 设置 Daemon 状态管理器
+func (c *UpdateChecker) SetDaemonState(state *DaemonState) {
+	c.daemonState = state
 }
