@@ -143,7 +143,626 @@ update-client.exe download --version VERSION [--output PATH] [--json]
 }
 ```
 
-## 集成示例
+## Daemon 模式（后台进度监控）
+
+当需要实时监控下载进度时，使用 `--daemon` 参数启动独立的 HTTP 服务器。
+
+### 启动 Daemon 模式
+
+```bash
+update-client.exe download --daemon --port 19876 --version 1.2.0
+```
+
+输出：
+```
+✓ Daemon mode started on port 19876
+✓ Downloading: app-v1.2.0.zip
+✓ Monitoring parent process (PID: 12345)
+```
+
+### HTTP API
+
+**GET /status** - 获取下载状态
+
+```json
+{
+  "state": "downloading",        // idle | downloading | completed | error
+  "version": "1.2.0",
+  "file": "./updates/app-v1.2.0.zip",
+  "progress": {
+    "downloaded": 52428800,
+    "total": 104857600,
+    "percentage": 50.0,
+    "speed": 8912896
+  },
+  "error": ""
+}
+```
+
+**POST /shutdown** - 关闭服务器
+
+```bash
+curl -X POST http://localhost:19876/shutdown
+```
+
+响应：
+```json
+{
+  "success": true,
+  "message": "Server shutting down"
+}
+```
+
+### 完整使用流程
+
+1. **启动下载进程**（指定可用端口）
+2. **定期轮询状态**（每秒一次）
+3. **下载完成后获取文件路径**
+4. **发送关闭命令**
+
+### 重要说明
+
+- **端口分配**：调用者负责管理端口（建议范围 19876-19880）
+- **父进程监控**：daemon 模式下每 5 秒检测父进程，父进程退出时自动终止
+- **错误处理**：下载失败时状态变为 `error`，调用者需主动发送 shutdown
+- **超时保护**：若下载卡住，可发送 shutdown 强制终止
+
+## Daemon 模式集成示例
+
+Daemon 模式适用于需要实时显示下载进度的场景。以下是各语言的完整集成示例。
+
+### C# / WPF 应用 - Daemon 模式
+
+```csharp
+using System;
+using System.Diagnostics;
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+public class UpdateDownloader : IDisposable
+{
+    private Process _process;
+    private HttpClient _httpClient;
+    private int _port;
+    private readonly string _updateClientPath;
+
+    public UpdateDownloader()
+    {
+        _updateClientPath = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "update-client.exe"
+        );
+    }
+
+    // 启动下载（Daemon 模式）
+    public async Task<bool> StartDownloadAsync(string version, string outputPath)
+    {
+        _port = GetAvailablePort();
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = _updateClientPath,
+            Arguments = $"download --daemon --port {_port} --version {version} --output \"{outputPath}\"",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+
+        try
+        {
+            _process = Process.Start(psi);
+            await Task.Delay(1000); // 等待 HTTP 服务器启动
+
+            _httpClient = new HttpClient
+            {
+                BaseAddress = new Uri($"http://localhost:{_port}"),
+                Timeout = TimeSpan.FromSeconds(5)
+            };
+
+            // 验证服务器是否启动成功
+            var status = await GetStatusAsync();
+            return status != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // 获取下载状态
+    public async Task<DownloadStatus?> GetStatusAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/status");
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            var json = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<DownloadStatus>(json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // 监控下载进度（带回调）
+    public async Task<DownloadStatus?> MonitorDownloadAsync(
+        Action<DownloadProgress> onProgress,
+        CancellationToken cancellationToken = default)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var status = await GetStatusAsync();
+            if (status == null)
+                return null;
+
+            switch (status.State)
+            {
+                case "downloading":
+                    onProgress?.Invoke(status.Progress);
+                    break;
+
+                case "completed":
+                    return status;
+
+                case "error":
+                    return status;
+            }
+
+            await Task.Delay(1000, cancellationToken);
+        }
+
+        return null;
+    }
+
+    // 关闭下载进程
+    public async Task ShutdownAsync()
+    {
+        try
+        {
+            if (_httpClient != null)
+            {
+                await _httpClient.PostAsync("/shutdown", null);
+            }
+        }
+        catch { }
+
+        if (_process != null && !_process.HasExited)
+        {
+            _process.WaitForExit(5000);
+            _process.Close();
+        }
+    }
+
+    // 获取可用端口（19876-19880）
+    private int GetAvailablePort()
+    {
+        for (int port = 19876; port <= 19880; port++)
+        {
+            if (IsPortAvailable(port))
+                return port;
+        }
+        throw new Exception("No available port in range 19876-19880");
+    }
+
+    private bool IsPortAvailable(int port)
+    {
+        try
+        {
+            var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, port);
+            listener.Start();
+            listener.Stop();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public void Dispose()
+    {
+        ShutdownAsync().Wait();
+        _httpClient?.Dispose();
+        _process?.Dispose();
+    }
+}
+
+// 数据模型
+public class DownloadStatus
+{
+    public string State { get; set; }        // idle | downloading | completed | error
+    public string Version { get; set; }
+    public string File { get; set; }
+    public DownloadProgress Progress { get; set; }
+    public string Error { get; set; }
+}
+
+public class DownloadProgress
+{
+    public long Downloaded { get; set; }
+    public long Total { get; set; }
+    public double Percentage { get; set; }
+    public long Speed { get; set; }
+}
+
+// 使用示例
+public async Task DownloadUpdateWithProgress()
+{
+    var downloader = new UpdateDownloader();
+
+    try
+    {
+        // 启动下载
+        if (!await downloader.StartDownloadAsync("1.2.0", "./updates/app.zip"))
+        {
+            MessageBox.Show("Failed to start download");
+            return;
+        }
+
+        // 监控进度
+        var result = await downloader.MonitorDownloadAsync(progress =>
+        {
+            // 更新 UI 进度条
+            Dispatcher.Invoke(() =>
+            {
+                progressBar.Value = progress.Percentage;
+                speedText.Text = FormatSpeed(progress.Speed);
+            });
+        });
+
+        if (result?.State == "completed")
+        {
+            MessageBox.Show($"Download completed: {result.File}");
+            // 继续安装流程
+        }
+        else if (result?.State == "error")
+        {
+            MessageBox.Show($"Download failed: {result.Error}");
+        }
+    }
+    finally
+    {
+        await downloader.ShutdownAsync();
+    }
+}
+```
+
+### Go 应用 - Daemon 模式
+
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os/exec"
+	"strconv"
+	"time"
+)
+
+type UpdateDownloader struct {
+	cmd    *exec.Cmd
+	client *http.Client
+	port   int
+}
+
+type DownloadStatus struct {
+	State    string        `json:"state"`    // idle | downloading | completed | error
+	Version  string        `json:"version"`
+	File     string        `json:"file"`
+	Progress *ProgressInfo `json:"progress,omitempty"`
+	Error    string        `json:"error,omitempty"`
+}
+
+type ProgressInfo struct {
+	Downloaded int64   `json:"downloaded"`
+	Total      int64   `json:"total"`
+	Percentage float64 `json:"percentage"`
+	Speed      int64   `json:"speed"`
+}
+
+// 启动下载
+func (d *UpdateDownloader) Start(version, outputPath string) error {
+	d.port = d.getAvailablePort()
+
+	d.cmd = exec.Command(
+		"update-client.exe",
+		"download", "--daemon",
+		"--port", strconv.Itoa(d.port),
+		"--version", version,
+		"--output", outputPath,
+	)
+
+	if err := d.cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start download process: %w", err)
+	}
+
+	// 等待 HTTP 服务器启动
+	time.Sleep(time.Second)
+
+	d.client = &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	return nil
+}
+
+// 获取状态
+func (d *UpdateDownloader) GetStatus() (*DownloadStatus, error) {
+	resp, err := d.client.Get(fmt.Sprintf("http://localhost:%d/status", d.port))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var status DownloadStatus
+	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		return nil, err
+	}
+
+	return &status, nil
+}
+
+// 监控下载
+func (d *UpdateDownloader) Monitor(callback func(*ProgressInfo)) (*DownloadStatus, error) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		status, err := d.GetStatus()
+		if err != nil {
+			return nil, err
+		}
+
+		switch status.State {
+		case "downloading":
+			if status.Progress != nil {
+				callback(status.Progress)
+			}
+		case "completed", "error":
+			return status, nil
+		}
+	}
+
+	return nil, nil
+}
+
+// 关闭
+func (d *UpdateDownloader) Shutdown() error {
+	resp, err := d.client.Post(
+		fmt.Sprintf("http://localhost:%d/shutdown", d.port),
+		"application/json",
+		bytes.NewBuffer(nil),
+	)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+
+	return d.cmd.Wait()
+}
+
+// 获取可用端口
+func (d *UpdateDownloader) getAvailablePort() int {
+	for port := 19876; port <= 19880; port++ {
+		if d.isPortAvailable(port) {
+			return port
+		}
+	}
+	panic("no available port in range 19876-19880")
+}
+
+func (d *UpdateDownloader) isPortAvailable(port int) bool {
+	addr := fmt.Sprintf(":%d", port)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return false
+	}
+	listener.Close()
+	return true
+}
+
+// 使用示例
+func main() {
+	downloader := &UpdateDownloader{}
+
+	// 启动下载
+	if err := downloader.Start("1.2.0", "./updates/app.zip"); err != nil {
+		fmt.Printf("Failed to start: %v\n", err)
+		return
+	}
+	defer downloader.Shutdown()
+
+	// 监控进度
+	status, err := downloader.Monitor(func(p *ProgressInfo) {
+		fmt.Printf("Progress: %.1f%% (%.2f MB/s)\n",
+			p.Percentage, float64(p.Speed)/(1024*1024))
+	})
+
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	if status.State == "completed" {
+		fmt.Printf("Download completed: %s\n", status.File)
+	} else if status.State == "error" {
+		fmt.Printf("Download failed: %s\n", status.Error)
+	}
+}
+```
+
+### Python 应用 - Daemon 模式
+
+```python
+import requests
+import subprocess
+import socket
+import time
+from typing import Optional, Callable
+from dataclasses import dataclass
+
+@dataclass
+class DownloadProgress:
+    downloaded: int
+    total: int
+    percentage: float
+    speed: int
+
+@dataclass
+class DownloadStatus:
+    state: str           # idle | downloading | completed | error
+    version: str
+    file: str
+    progress: Optional[DownloadProgress]
+    error: str
+
+class UpdateDownloader:
+    def __init__(self):
+        self.process: Optional[subprocess.Popen] = None
+        self.port: Optional[int] = None
+        self.base_url: Optional[str] = None
+
+    def start(self, version: str, output_path: str) -> bool:
+        """启动下载进程"""
+        self.port = self._get_available_port()
+
+        cmd = [
+            "update-client.exe",
+            "download", "--daemon",
+            "--port", str(self.port),
+            "--version", version,
+            "--output", output_path
+        ]
+
+        try:
+            self.process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+
+            self.base_url = f"http://localhost:{self.port}"
+            time.sleep(1)  # 等待 HTTP 服务器启动
+            return True
+        except Exception as e:
+            print(f"Failed to start: {e}")
+            return False
+
+    def get_status(self) -> Optional[DownloadStatus]:
+        """获取下载状态"""
+        try:
+            resp = requests.get(f"{self.base_url}/status", timeout=5)
+            data = resp.json()
+
+            progress = None
+            if data.get("progress"):
+                p = data["progress"]
+                progress = DownloadProgress(**p)
+
+            return DownloadStatus(
+                state=data["state"],
+                version=data["version"],
+                file=data["file"],
+                progress=progress,
+                error=data.get("error", "")
+            )
+        except Exception as e:
+            print(f"Failed to get status: {e}")
+            return None
+
+    def monitor(self, callback: Callable[[DownloadProgress], None]) -> Optional[DownloadStatus]:
+        """监控下载进度"""
+        while True:
+            status = self.get_status()
+            if status is None:
+                return None
+
+            if status.state == "downloading":
+                if status.progress:
+                    callback(status.progress)
+            elif status.state in ("completed", "error"):
+                return status
+
+            time.sleep(1)
+
+    def shutdown(self):
+        """关闭下载进程"""
+        try:
+            requests.post(f"{self.base_url}/shutdown", timeout=5)
+        except:
+            pass
+
+        if self.process:
+            self.process.wait(timeout=5)
+            self.process = None
+
+    def _get_available_port(self) -> int:
+        """获取可用端口"""
+        for port in range(19876, 19881):
+            if self._is_port_available(port):
+                return port
+        raise Exception("No available port in range 19876-19880")
+
+    def _is_port_available(self, port: int) -> bool:
+        """检查端口是否可用"""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.bind(("127.0.0.1", port))
+            sock.close()
+            return True
+        except:
+            return False
+
+    def __del__(self):
+        self.shutdown()
+
+
+# 使用示例
+def main():
+    downloader = UpdateDownloader()
+
+    # 启动下载
+    if not downloader.start("1.2.0", "./updates/app.zip"):
+        print("Failed to start download")
+        return
+
+    # 进度回调函数
+    def on_progress(progress: DownloadProgress):
+        print(f"Progress: {progress.percentage:.1f}% "
+              f"({progress.downloaded}/{progress.total} bytes) "
+              f"({progress.speed / 1024 / 1024:.2f} MB/s)")
+
+    try:
+        # 监控下载
+        status = downloader.monitor(callback=on_progress)
+
+        if status.state == "completed":
+            print(f"\nDownload completed: {status.file}")
+        elif status.state == "error":
+            print(f"\nDownload failed: {status.error}")
+    finally:
+        downloader.shutdown()
+
+if __name__ == "__main__":
+    main()
+```
+
+## 常规模式集成示例
+
+以下是不使用 Daemon 模式的简单集成方式（适合不需要实时进度的场景）。
 
 ### C# / WPF 应用
 
