@@ -1,0 +1,36 @@
+# Update Client Configuration
+# Copy this file to the same directory as update-client.exe and rename it to update-config.yaml
+
+server:
+  # Update server URL (required)
+  url: http://localhost:8080
+  # Request timeout in seconds (default: 30)
+  timeout: 30
+
+program:
+  # Program identifier - used to query updates for this specific program (required)
+  id: your-program-id
+  # Current version of the program (required)
+  # This should match the version of your application
+  current_version: 1.0.0
+
+auth:
+  # API token for authenticated requests (optional)
+  # Leave empty if the server does not require authentication
+  token: ""
+
+download:
+  # Directory to save downloaded update packages (default: ./updates)
+  save_path: ./updates
+  # File naming strategy: "version" or "timestamp" (default: version)
+  naming: version
+  # Number of old versions to keep (default: 3, 0 to keep all)
+  keep: 3
+  # Automatically verify file hash after download (default: true)
+  auto_verify: true
+
+logging:
+  # Log level: trace, debug, info, warn, error (default: info)
+  level: info
+  # Log file path (default: update-client.log in current directory)
+  file: update-client.log

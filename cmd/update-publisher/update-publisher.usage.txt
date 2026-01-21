@@ -1,0 +1,91 @@
+# Update Publisher - Usage Guide
+
+## Overview
+The update-publisher.exe is a command-line tool for publishing versions to the update server.
+All configuration is done via command-line flags - no configuration file is needed.
+
+## Global Flags (Required for all commands)
+  --server string       Update server URL (default: http://localhost:8080)
+  --token string        API authentication token (required)
+  --program-id string   Program ID to manage (required)
+
+## Commands
+
+### 1. Upload a new version
+```bash
+update-publisher.exe upload ^
+  --token YOUR_API_TOKEN ^
+  --program-id docufiller ^
+  --channel stable ^
+  --version 1.0.0 ^
+  --file path\to\package.zip ^
+  --notes "Bug fixes and improvements" ^
+  --mandatory
+```
+
+Options:
+  --channel string    Channel: stable or beta (required)
+  --version string    Version number (required)
+  --file string       Path to the package file to upload (required)
+  --notes string      Release notes (optional)
+  --mandatory         Mark as mandatory update (optional, default: false)
+
+### 2. Delete a version
+```bash
+update-publisher.exe delete ^
+  --token YOUR_API_TOKEN ^
+  --program-id docufiller ^
+  --channel stable ^
+  --version 1.0.0
+```
+
+Options:
+  --channel string    Channel: stable or beta (required)
+  --version string    Version number to delete (required)
+
+### 3. List versions
+```bash
+update-publisher.exe list ^
+  --token YOUR_API_TOKEN ^
+  --program-id docufiller ^
+  --channel stable
+```
+
+Options:
+  --channel string    Filter by channel (optional, shows all if omitted)
+
+## Examples
+
+### Upload a stable release
+```bash
+update-publisher.exe upload --token SECRET123 --program-id docufiller --channel stable --version 2.0.0 --file C:\build\docufiller-2.0.0.zip --notes "Major update with new features"
+```
+
+### Upload a beta release
+```bash
+update-publisher.exe upload --token SECRET123 --program-id docufiller --channel beta --version 2.1.0-beta.1 --file C:\build\docufiller-2.1.0-beta.1.zip
+```
+
+### List all stable versions
+```bash
+update-publisher.exe list --token SECRET123 --program-id docufiller --channel stable
+```
+
+### Delete an old version
+```bash
+update-publisher.exe delete --token SECRET123 --program-id docufiller --channel stable --version 1.0.0
+```
+
+## Security Notes
+- Keep your API token secure - never commit it to version control
+- Change the default API token in config.yaml on the server before deployment
+- Use HTTPS in production if the server is configured with SSL/TLS
+
+## Server Configuration
+The server's upload token is configured in config.yaml on the update server:
+```yaml
+api:
+  uploadToken: your-secret-token-here
+```
+
+Ensure the --token value matches this configuration.
