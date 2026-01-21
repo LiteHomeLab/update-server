@@ -13,8 +13,20 @@ REM Get the script directory
 set "SCRIPT_DIR=%~dp0"
 set "OUTPUT_DIR=%SCRIPT_DIR%bin"
 set "CLIENT_OUTPUT_DIR=%OUTPUT_DIR%\clients"
+set "SERVER_CLIENT_DIR=%SCRIPT_DIR%data\clients"
 
-echo [1/6] Creating output directories...
+echo [1/6] Cleaning output directories...
+REM Clean output directories to avoid cache issues
+if exist "%OUTPUT_DIR%" (
+    echo Removing: %OUTPUT_DIR%
+    rmdir /s /q "%OUTPUT_DIR%" 2>nul
+)
+if exist "%SERVER_CLIENT_DIR%" (
+    echo Removing: %SERVER_CLIENT_DIR%
+    rmdir /s /q "%SERVER_CLIENT_DIR%" 2>nul
+)
+
+echo Creating fresh output directories...
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
 if not exist "%CLIENT_OUTPUT_DIR%" mkdir "%CLIENT_OUTPUT_DIR%"
 echo Created: %OUTPUT_DIR%
@@ -52,7 +64,6 @@ echo SUCCESS: Built update-client.exe
 echo.
 
 echo [5/6] Copying client executables to server data directory...
-set "SERVER_CLIENT_DIR=%SCRIPT_DIR%data\clients"
 if not exist "%SERVER_CLIENT_DIR%" mkdir "%SERVER_CLIENT_DIR%"
 
 REM Copy update publisher
