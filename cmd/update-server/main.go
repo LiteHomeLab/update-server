@@ -11,6 +11,7 @@ import (
 	"docufiller-update-server/internal/logger"
 	"docufiller-update-server/internal/middleware"
 	"docufiller-update-server/internal/service"
+	"docufiller-update-server/web"
 )
 
 func main() {
@@ -59,6 +60,9 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.Default()
+
+	// 加载 HTML 模板 (使用嵌入的文件系统)
+	r.LoadHTMLFS(http.FS(web.Files), "*.html")
 
 	// 注册加密中间件
 	r.Use(cryptoMiddleware.Process())
