@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"docufiller-update-server/internal/config"
@@ -124,6 +125,15 @@ func main() {
 		})
 	}
 
+	// Admin 登录路由 - 无需认证
+	r.GET("/admin/login", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "login.html", gin.H{
+			"title": "管理员登录",
+			"action": "/admin/login",
+		})
+	})
+	r.POST("/admin/login", authHandler.Login)
+
 	// Admin 页面路由 - 需要认证
 	adminGroup := r.Group("/admin")
 	if initialized {
@@ -131,7 +141,15 @@ func main() {
 	}
 	{
 		adminGroup.GET("", func(c *gin.Context) {
-			if initialized {
+			// 动态检查初始化状态，而不是使用启动时的缓存值
+			isInitialized, err := setupService.IsInitialized()
+			if err != nil {
+				c.HTML(http.StatusInternalServerError, "error.html", gin.H{
+					"error": "无法检查初始化状态",
+				})
+				return
+			}
+			if isInitialized {
 				c.HTML(http.StatusOK, "admin.html", gin.H{
 					"title": "管理后台",
 				})
@@ -140,14 +158,6 @@ func main() {
 			}
 		})
 
-		adminGroup.GET("/login", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "login.html", gin.H{
-				"title": "管理员登录",
-				"action": "/admin/login",
-			})
-		})
-
-		adminGroup.POST("/login", authHandler.Login)
 		adminGroup.POST("/logout", authHandler.Logout)
 	}
 
@@ -256,11 +266,17 @@ func main() {
 		r.HandleContext(c)
 	})
 
-	// 静态文件服务 - 作为 fallback 处理
+	// 静态文件服务 - 使用嵌入的文件系统
+	fileServer := http.FileServer(http.FS(web.Files))
 	r.NoRoute(func(c *gin.Context) {
-		// 尝试提供静态文件
-		fileServer := http.FileServer(http.Dir("./web"))
-		fileServer.ServeHTTP(c.Writer, c.Request)
+		// 检查是否是静态文件请求
+		path := c.Request.URL.Path
+		if _, err := web.Files.Open(strings.TrimPrefix(path, "/")); err == nil {
+			fileServer.ServeHTTP(c.Writer, c.Request)
+		} else {
+			// 不是静态文件，返回 404
+			c.Status(http.StatusNotFound)
+		}
 	})
 
 	// 启动服务器

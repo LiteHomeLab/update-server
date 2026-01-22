@@ -5,43 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Update Server - 管理后台</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="admin.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="admin-container">
-        <!-- 侧边栏 -->
+        <!-- 侧边栏 - 程序列表 -->
         <aside class="sidebar">
-            <div class="logo">
-                <i class="fas fa-server"></i>
-                <span>Update Server</span>
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-server"></i>
+                    <span>Update Server</span>
+                </div>
+                <button class="btn btn-primary btn-sm" id="createProgramBtn">
+                    <i class="fas fa-plus"></i>
+                    创建新程序
+                </button>
             </div>
-            <nav class="nav-menu">
-                <ul>
-                    <li class="nav-item active" data-page="dashboard">
-                        <i class="fas fa-tachometer-alt"></i>
-                        <span>仪表板</span>
-                    </li>
-                    <li class="nav-item" data-page="files">
-                        <i class="fas fa-folder"></i>
-                        <span>文件管理</span>
-                    </li>
-                    <li class="nav-item" data-page="users">
-                        <i class="fas fa-users"></i>
-                        <span>用户管理</span>
-                    </li>
-                    <li class="nav-item" data-page="settings">
-                        <i class="fas fa-cog"></i>
-                        <span>系统设置</span>
-                    </li>
-                    <li class="nav-item" data-page="logs">
-                        <i class="fas fa-file-alt"></i>
-                        <span>日志查看</span>
-                    </li>
-                    <li class="nav-item" data-page="help">
-                        <i class="fas fa-question-circle"></i>
-                        <span>帮助文档</span>
-                    </li>
-                </ul>
+            <nav class="program-list" id="programList">
+                <!-- 程序列表将通过 JavaScript 动态加载 -->
+                <div class="program-list-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    加载中...
+                </div>
             </nav>
             <div class="user-info">
                 <div class="user-avatar">
@@ -63,304 +49,267 @@
             <!-- 顶部导航栏 -->
             <header class="top-nav">
                 <div class="nav-left">
-                    <button class="menu-toggle" id="menuToggle">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <h1 id="pageTitle">仪表板</h1>
-                </div>
-                <div class="nav-right">
-                    <div class="status-indicators">
-                        <div class="status-item" title="服务器状态">
-                            <i class="fas fa-circle status-online"></i>
-                            <span>在线</span>
-                        </div>
-                        <div class="status-item" title="内存使用">
-                            <i class="fas fa-memory"></i>
-                            <span id="memoryUsage">45%</span>
-                        </div>
-                        <div class="status-item" title="磁盘使用">
-                            <i class="fas fa-hdd"></i>
-                            <span id="diskUsage">23%</span>
-                        </div>
-                    </div>
+                    <h1 id="pageTitle">程序管理</h1>
                 </div>
             </header>
 
-            <!-- 页面内容 -->
+            <!-- 程序未选择时的空状态 -->
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <i class="fas fa-folder-open"></i>
+                <h2>未选择程序</h2>
+                <p>请从左侧列表选择一个程序，或创建新程序</p>
+            </div>
+
+            <!-- 程序详情内容 -->
             <div class="page-content" id="pageContent">
-                <!-- 仪表板页面 -->
-                <div class="page active" id="dashboard-page">
-                    <!-- 统计卡片 -->
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon stat-blue">
-                                <i class="fas fa-cloud-upload-alt"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>总文件数</h3>
-                                <p class="stat-number" id="totalFiles">1,234</p>
-                                <p class="stat-change">+12% 本月</p>
-                            </div>
+                <!-- 三模块网格布局 -->
+                <div class="modules-grid">
+                    <!-- 模块一: Token & 密钥管理 -->
+                    <div class="module-card" id="tokensModule">
+                        <div class="module-header">
+                            <h2><i class="fas fa-key"></i> Token & 密钥管理</h2>
                         </div>
+                        <div class="module-body">
+                            <!-- Upload Token -->
+                            <div class="token-item">
+                                <div class="token-header">
+                                    <span class="token-label">Upload Token</span>
+                                    <span class="token-desc">用于发布更新</span>
+                                </div>
+                                <div class="token-value-container">
+                                    <code class="token-value" id="uploadToken">loading...</code>
+                                    <div class="token-actions">
+                                        <button class="btn btn-sm btn-secondary" onclick="copyToken('upload')">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-secondary" onclick="regenerateToken('upload')">
+                                            <i class="fas fa-sync"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
 
-                        <div class="stat-card">
-                            <div class="stat-icon stat-green">
-                                <i class="fas fa-download"></i>
+                            <!-- Download Token -->
+                            <div class="token-item">
+                                <div class="token-header">
+                                    <span class="token-label">Download Token</span>
+                                    <span class="token-desc">用于客户端下载</span>
+                                </div>
+                                <div class="token-value-container">
+                                    <code class="token-value" id="downloadToken">loading...</code>
+                                    <div class="token-actions">
+                                        <button class="btn btn-sm btn-secondary" onclick="copyToken('download')">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-secondary" onclick="regenerateToken('download')">
+                                            <i class="fas fa-sync"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="stat-content">
-                                <h3>总下载量</h3>
-                                <p class="stat-number" id="totalDownloads">45,678</p>
-                                <p class="stat-change">+8% 本月</p>
-                            </div>
-                        </div>
 
-                        <div class="stat-card">
-                            <div class="stat-icon stat-yellow">
-                                <i class="fas fa-hdd"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>存储空间</h3>
-                                <p class="stat-number">12.3 GB / 100 GB</p>
-                                <p class="stat-change">已使用 12.3%</p>
-                            </div>
-                        </div>
-
-                        <div class="stat-card">
-                            <div class="stat-icon stat-purple">
-                                <i class="fas fa-users"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>活跃用户</h3>
-                                <p class="stat-number">89</p>
-                                <p class="stat-change">+5 当前在线</p>
+                            <!-- 加密密钥 -->
+                            <div class="token-item encryption-key">
+                                <div class="token-header">
+                                    <span class="token-label">加密密钥</span>
+                                    <span class="token-desc">用于签名验证</span>
+                                </div>
+                                <div class="token-value-container">
+                                    <code class="token-value" id="encryptionKey">loading...</code>
+                                    <div class="token-actions">
+                                        <button class="btn btn-sm btn-secondary" onclick="copyToken('encryption')">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-warning" onclick="regenerateEncryptionKey()">
+                                            <i class="fas fa-sync"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="encryption-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    重新生成后旧版本将无法验证！
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 最近活动 -->
-                    <div class="activity-section">
-                        <h2>最近活动</h2>
-                        <div class="activity-table">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>时间</th>
-                                        <th>用户</th>
-                                        <th>操作</th>
-                                        <th>文件</th>
-                                        <th>IP地址</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="activityTableBody">
-                                    <tr>
-                                        <td>2024-01-20 14:30</td>
-                                        <td>user@example.com</td>
-                                        <td><span class="badge success">下载</span></td>
-                                        <td>app_v1.2.0.zip</td>
-                                        <td>192.168.1.100</td>
-                                    </tr>
-                                    <tr>
-                                        <td>2024-01-20 14:25</td>
-                                        <td>admin</td>
-                                        <td><span class="badge info">上传</span></td>
-                                        <td>update.zip</td>
-                                        <td>127.0.0.1</td>
-                                    </tr>
-                                    <tr>
-                                        <td>2024-01-20 14:20</td>
-                                        <td>user2@example.com</td>
-                                        <td><span class="badge warning">访问</span></td>
-                                        <td>/</td>
-                                        <td>192.168.1.101</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- 存储趋势 -->
-                    <div class="chart-section">
-                        <h2>存储使用趋势</h2>
-                        <div class="chart-container">
-                            <canvas id="storageChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 文件管理页面 -->
-                <div class="page" id="files-page">
-                    <div class="page-header">
-                        <div class="header-left">
-                            <h1>文件管理</h1>
-                            <div class="breadcrumb">
-                                <span>仪表板</span>
-                                <i class="fas fa-chevron-right"></i>
-                                <span class="active">文件管理</span>
-                            </div>
-                        </div>
-                        <div class="header-right">
-                            <button class="btn btn-primary" onclick="uploadFile()">
+                    <!-- 模块二: 版本管理 -->
+                    <div class="module-card" id="versionsModule">
+                        <div class="module-header">
+                            <h2><i class="fas fa-code-branch"></i> 版本管理</h2>
+                            <button class="btn btn-primary btn-sm" onclick="showUploadModal()">
                                 <i class="fas fa-upload"></i>
-                                上传文件
+                                上传新版本
                             </button>
                         </div>
-                    </div>
-
-                    <!-- 搜索和过滤 -->
-                    <div class="filter-section">
-                        <div class="search-box">
-                            <i class="fas fa-search"></i>
-                            <input type="text" id="fileSearch" placeholder="搜索文件...">
-                        </div>
-                        <div class="filter-buttons">
-                            <button class="btn btn-sm btn-secondary active" data-filter="all">全部</button>
-                            <button class="btn btn-sm btn-secondary" data-filter="recent">最近</button>
-                            <button class="btn btn-sm btn-secondary" data-filter="large">大文件</button>
-                            <button class="btn btn-sm btn-secondary" data-filter="popular">热门</button>
-                        </div>
-                    </div>
-
-                    <!-- 文件列表 -->
-                    <div class="file-grid" id="fileGrid">
-                        <div class="file-item">
-                            <div class="file-icon">
-                                <i class="fas fa-file-archive"></i>
+                        <div class="module-body">
+                            <div class="versions-table-container">
+                                <table class="versions-table">
+                                    <thead>
+                                        <tr>
+                                            <th>版本号</th>
+                                            <th>通道</th>
+                                            <th>大小</th>
+                                            <th>发布时间</th>
+                                            <th>下载</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="versionsTableBody">
+                                        <tr>
+                                            <td colspan="6" class="loading-row">
+                                                <i class="fas fa-spinner fa-spin"></i>
+                                                加载中...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
-                            <div class="file-info">
-                                <h3>app_v1.2.0.zip</h3>
-                                <p>45.2 MB • 2024-01-20 14:30</p>
-                                <div class="file-actions">
-                                    <button class="btn btn-sm btn-primary" onclick="downloadFile('app_v1.2.0.zip')">
-                                        <i class="fas fa-download"></i> 下载
-                                    </button>
-                                    <button class="btn btn-sm btn-secondary" onclick="shareFile('app_v1.2.0.zip')">
-                                        <i class="fas fa-share"></i> 分享
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" onclick="deleteFile('app_v1.2.0.zip')">
-                                        <i class="fas fa-trash"></i> 删除
+                        </div>
+                    </div>
+
+                    <!-- 模块三: 客户端工具 -->
+                    <div class="module-card" id="clientsModule">
+                        <div class="module-header">
+                            <h2><i class="fas fa-download"></i> 客户端工具</h2>
+                        </div>
+                        <div class="module-body">
+                            <!-- Update Client -->
+                            <div class="client-item">
+                                <div class="client-header">
+                                    <h3>
+                                        <i class="fas fa-desktop"></i>
+                                        Update Client
+                                    </h3>
+                                    <span class="client-desc">嵌入到你的应用中</span>
+                                </div>
+                                <p class="client-usage">
+                                    下载已配置的客户端包，包含可执行程序和配置文件。
+                                </p>
+                                <button class="btn btn-primary" onclick="downloadUpdateClient()">
+                                    <i class="fas fa-download"></i>
+                                    下载已配置的客户端包
+                                </button>
+                            </div>
+
+                            <hr class="client-divider">
+
+                            <!-- Update Publisher -->
+                            <div class="client-item">
+                                <div class="client-header">
+                                    <h3>
+                                        <i class="fas fa-terminal"></i>
+                                        Update Publisher
+                                    </h3>
+                                    <span class="client-desc">命令行发布工具</span>
+                                </div>
+                                <p class="client-usage">
+                                    此工具为命令行程序，无法打包。请使用以下命令：
+                                </p>
+                                <div class="command-example">
+                                    <pre id="publisher-command"># 示例命令将在此处显示</pre>
+                                    <button class="btn btn-sm btn-secondary" onclick="copyCommand()">
+                                        <i class="fas fa-copy"></i>
                                     </button>
                                 </div>
                             </div>
-                            <div class="file-stats">
-                                <span>下载: 1,234</span>
-                                <span>大小: 45.2 MB</span>
-                            </div>
                         </div>
-
-                        <div class="file-item">
-                            <div class="file-icon">
-                                <i class="fas fa-file-image"></i>
-                            </div>
-                            <div class="file-info">
-                                <h3>screenshot.png</h3>
-                                <p>2.1 MB • 2024-01-20 14:25</p>
-                                <div class="file-actions">
-                                    <button class="btn btn-sm btn-primary" onclick="downloadFile('screenshot.png')">
-                                        <i class="fas fa-download"></i> 下载
-                                    </button>
-                                    <button class="btn btn-sm btn-secondary" onclick="shareFile('screenshot.png')">
-                                        <i class="fas fa-share"></i> 分享
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" onclick="deleteFile('screenshot.png')">
-                                        <i class="fas fa-trash"></i> 删除
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="file-stats">
-                                <span>下载: 89</span>
-                                <span>大小: 2.1 MB</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 其他页面内容 -->
-                <div class="page" id="users-page">
-                    <div class="page-header">
-                        <div class="header-left">
-                            <h1>用户管理</h1>
-                        </div>
-                        <div class="header-right">
-                            <button class="btn btn-primary" onclick="addUser()">
-                                <i class="fas fa-user-plus"></i>
-                                添加用户
-                            </button>
-                        </div>
-                    </div>
-                    <div class="placeholder-content">
-                        <i class="fas fa-users"></i>
-                        <h2>用户管理功能</h2>
-                        <p>这里将显示用户列表、权限管理等功能。</p>
-                    </div>
-                </div>
-
-                <div class="page" id="settings-page">
-                    <div class="page-header">
-                        <div class="header-left">
-                            <h1>系统设置</h1>
-                        </div>
-                    </div>
-                    <div class="placeholder-content">
-                        <i class="fas fa-cog"></i>
-                        <h2>系统设置功能</h2>
-                        <p>这里将显示服务器配置、安全设置等功能。</p>
-                    </div>
-                </div>
-
-                <div class="page" id="logs-page">
-                    <div class="page-header">
-                        <div class="header-left">
-                            <h1>日志查看</h1>
-                        </div>
-                    </div>
-                    <div class="placeholder-content">
-                        <i class="fas fa-file-alt"></i>
-                        <h2>日志查看功能</h2>
-                        <p>这里将显示系统日志、访问记录等功能。</p>
-                    </div>
-                </div>
-
-                <div class="page" id="help-page">
-                    <div class="page-header">
-                        <div class="header-left">
-                            <h1>帮助文档</h1>
-                        </div>
-                    </div>
-                    <div class="placeholder-content">
-                        <i class="fas fa-question-circle"></i>
-                        <h2>帮助文档功能</h2>
-                        <p>这里将显示使用说明、API文档等功能。</p>
                     </div>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- 上传文件模态框 -->
-    <div class="modal" id="uploadModal">
+    <!-- 创建程序模态框 -->
+    <div class="modal" id="createProgramModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>上传文件</h2>
-                <button class="close-btn" onclick="closeModal('uploadModal')">
+                <h2>创建新程序</h2>
+                <button class="close-btn" onclick="closeModal('createProgramModal')">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="modal-body">
-                <div class="upload-area" id="uploadArea">
-                    <i class="fas fa-cloud-upload-alt"></i>
-                    <p>拖拽文件到此处或点击选择文件</p>
-                    <input type="file" id="fileInput" multiple style="display: none;">
-                </div>
-                <div class="upload-progress" id="uploadProgress" style="display: none;">
-                    <div class="progress-bar">
-                        <div class="progress-fill"></div>
+                <form id="createProgramForm">
+                    <div class="form-group">
+                        <label for="programName">程序名称 *</label>
+                        <input type="text" id="programName" name="programName" required
+                               placeholder="例如: DocuFiller">
+                        <small class="form-hint">程序ID将自动生成，例如：my-app-20250122-abc123</small>
                     </div>
-                    <p class="progress-text">上传中... 0%</p>
-                </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('createProgramModal')">
+                            取消
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            创建
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <!-- 上传版本模态框 -->
+    <div class="modal" id="uploadVersionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>上传新版本</h2>
+                <button class="close-btn" onclick="closeModal('uploadVersionModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadVersionForm">
+                    <div class="form-group">
+                        <label for="versionFile">选择文件 *</label>
+                        <div class="upload-area" id="uploadArea">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>拖拽文件到此处或点击选择文件</p>
+                            <input type="file" id="versionFile" required style="display: none;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="versionNumber">版本号 *</label>
+                        <input type="text" id="versionNumber" name="versionNumber" required
+                               placeholder="例如: 1.0.0">
+                    </div>
+                    <div class="form-group">
+                        <label for="versionChannel">通道 *</label>
+                        <select id="versionChannel" name="versionChannel" required>
+                            <option value="stable">Stable (稳定版)</option>
+                            <option value="beta">Beta (测试版)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="versionNotes">发布说明</label>
+                        <textarea id="versionNotes" name="versionNotes" rows="3"
+                                  placeholder="描述本次更新的内容..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="mandatoryUpdate" name="mandatoryUpdate">
+                            <span>强制更新</span>
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('uploadVersionModal')">
+                            取消
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-upload"></i>
+                            上传
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="admin.js"></script>
 </body>
 </html>

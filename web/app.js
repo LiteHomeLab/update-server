@@ -180,7 +180,7 @@ function finishSetup() {
     };
 
     // 发送配置到服务器
-    fetch('/api/setup', {
+    fetch('/api/setup/initialize', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -241,7 +241,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // 侧边栏折叠
 let sidebarCollapsed = false;
-document.getElementById('menuToggle').addEventListener('click', function() {
+const menuToggle = document.getElementById('menuToggle');
+if (menuToggle) {
+    menuToggle.addEventListener('click', function() {
     const sidebar = document.querySelector('.sidebar');
     sidebarCollapsed = !sidebarCollapsed;
 
@@ -250,10 +252,13 @@ document.getElementById('menuToggle').addEventListener('click', function() {
     } else {
         sidebar.classList.remove('collapsed');
     }
-});
+    });
+}
 
 // 文件搜索
-document.getElementById('fileSearch').addEventListener('input', function() {
+const fileSearch = document.getElementById('fileSearch');
+if (fileSearch) {
+    fileSearch.addEventListener('input', function() {
     const searchTerm = this.value.toLowerCase();
     const fileItems = document.querySelectorAll('.file-item');
 
@@ -265,7 +270,8 @@ document.getElementById('fileSearch').addEventListener('input', function() {
             item.style.display = 'none';
         }
     });
-});
+    });
+}
 
 // 文件过滤
 const filterButtons = document.querySelectorAll('.filter-buttons button');

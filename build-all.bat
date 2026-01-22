@@ -113,29 +113,8 @@ echo Configuration files copied to server deployment directory.
 
 echo.
 echo ========================================
-echo   Build Completed Successfully!
+echo   All Build Steps Completed Successfully
 echo ========================================
-echo.
-echo Output files:
-echo   - Server: %OUTPUT_DIR%\update-server.exe
-echo   - Update Publisher: %CLIENT_OUTPUT_DIR%\update-publisher.exe
-echo   - Update Client: %CLIENT_OUTPUT_DIR%\update-client.exe
-echo   - Publisher Usage: %CLIENT_OUTPUT_DIR%\update-publisher.usage.txt
-echo   - Client Config: %CLIENT_OUTPUT_DIR%\update-client.config.yaml
-echo.
-echo Server deployment directory:
-echo   - Executables: %SERVER_CLIENT_DIR%\
-echo   - Config files: %SERVER_CLIENT_DIR%\
-echo.
-echo To deploy:
-echo   1. Copy update-server.exe to your server
-echo   2. Create 'data\clients' directory on server
-echo   3. Copy update-publisher.exe to 'data\clients' directory
-echo   4. Copy update-client.exe to 'data\clients' directory
-echo   5. Copy update-publisher.usage.txt for reference
-echo   6. Rename update-client.config.yaml to update-config.yaml and customize
-echo   7. Run update-server.exe
-echo.
 goto :end
 
 :error
