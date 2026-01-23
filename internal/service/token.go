@@ -21,6 +21,11 @@ func NewTokenService(db *gorm.DB) *TokenService {
 
 // GenerateToken 生成新 Token
 func (s *TokenService) GenerateToken(programID, tokenType, createdBy string) (*models.Token, string, error) {
+	return s.GenerateTokenWithDB(s.db, programID, tokenType, createdBy)
+}
+
+// GenerateTokenWithDB 使用指定数据库实例生成新 Token（支持事务上下文）
+func (s *TokenService) GenerateTokenWithDB(db *gorm.DB, programID, tokenType, createdBy string) (*models.Token, string, error) {
 	// 生成随机 Token 值
 	randomBytes := make([]byte, 32)
 	if _, err := rand.Read(randomBytes); err != nil {
@@ -33,16 +38,16 @@ func (s *TokenService) GenerateToken(programID, tokenType, createdBy string) (*m
 	tokenID := hex.EncodeToString(hash[:])
 
 	token := &models.Token{
-		TokenID:   tokenID,
+		TokenID:    tokenID,
 		TokenValue: tokenValue,
-		ProgramID: programID,
-		TokenType: tokenType,
-		CreatedBy: createdBy,
-		IsActive:  true,
-		CreatedAt: time.Now(),
+		ProgramID:  programID,
+		TokenType:  tokenType,
+		CreatedBy:  createdBy,
+		IsActive:   true,
+		CreatedAt:  time.Now(),
 	}
 
-	if err := s.db.Create(token).Error; err != nil {
+	if err := db.Create(token).Error; err != nil {
 		return nil, "", err
 	}
 

@@ -104,6 +104,27 @@ Handlers → Services → Models
 - `data/packages/stable/`: Stable release packages
 - `data/packages/beta/`: Beta release packages
 - `logs/`: Rotated log files
+- `tmp/`: Temporary test code and data files
+- `docs/plans/`: Project planning documents
+
+## General Development Rules
+
+### Working Directory
+
+- **Temporary files**: All temporary test code, data, and experimental files should be placed in the `tmp/` folder at the project root.
+- **Project plans**: All planning documents should be placed in `docs/plans/` directory.
+
+### Logging
+
+- **Go logging**: Use `github.com/WQGroup/logger` for all Go projects. Query usage examples via Context7 if needed.
+
+### Testing for Frontend-Backend Projects
+
+- **Browser testing**: For projects with separated frontend and backend, use the `dev-browser` skill to test frontend-backend communication and interactions.
+
+### Image Processing
+
+- **MCP/Agent image capabilities**: When using screenshot MCP or Agent capabilities, ensure image dimensions are smaller than 1000x1000 pixels before submitting to recognition services.
 
 ## Script Development Rules
 

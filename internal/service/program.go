@@ -98,15 +98,15 @@ func (s *ProgramService) CreateProgramWithOptions(req CreateProgramRequest) (*Cr
 		}
 		response.EncryptionKey = encryptionKey
 
-		// 生成上传Token
-		_, uploadToken, err := s.tokenService.GenerateToken(program.ProgramID, "upload", "system")
+		// 生成上传Token（传递事务上下文）
+		_, uploadToken, err := s.tokenService.GenerateTokenWithDB(tx, program.ProgramID, "upload", "system")
 		if err != nil {
 			return err
 		}
 		response.UploadToken = uploadToken
 
-		// 生成下载Token
-		_, downloadToken, err := s.tokenService.GenerateToken(program.ProgramID, "download", "system")
+		// 生成下载Token（传递事务上下文）
+		_, downloadToken, err := s.tokenService.GenerateTokenWithDB(tx, program.ProgramID, "download", "system")
 		if err != nil {
 			return err
 		}
