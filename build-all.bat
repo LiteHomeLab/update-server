@@ -12,30 +12,26 @@ echo.
 REM Get the script directory
 set "SCRIPT_DIR=%~dp0"
 set "OUTPUT_DIR=%SCRIPT_DIR%bin"
-set "CLIENT_OUTPUT_DIR=%OUTPUT_DIR%\clients"
-set "SERVER_CLIENT_DIR=%SCRIPT_DIR%data\clients"
+set "SERVER_OUTPUT=%OUTPUT_DIR%\update-server.exe"
+set "CLIENT_DIR=%OUTPUT_DIR%\data\clients"
 
-echo [1/6] Cleaning output directories...
-REM Clean output directories to avoid cache issues
+echo [1/5] Cleaning output directory...
+REM Clean output directory to avoid cache issues
 if exist "%OUTPUT_DIR%" (
     echo Removing: %OUTPUT_DIR%
     rmdir /s /q "%OUTPUT_DIR%" 2>nul
 )
-if exist "%SERVER_CLIENT_DIR%" (
-    echo Removing: %SERVER_CLIENT_DIR%
-    rmdir /s /q "%SERVER_CLIENT_DIR%" 2>nul
-)
 
-echo Creating fresh output directories...
+echo Creating fresh output directory...
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
-if not exist "%CLIENT_OUTPUT_DIR%" mkdir "%CLIENT_OUTPUT_DIR%"
+if not exist "%CLIENT_DIR%" mkdir "%CLIENT_DIR%"
 echo Created: %OUTPUT_DIR%
-echo Created: %CLIENT_OUTPUT_DIR%
+echo Created: %CLIENT_DIR%
 echo.
 
-echo [2/6] Building Update Server...
+echo [2/5] Building Update Server...
 cd /d "%SCRIPT_DIR%cmd\update-server"
-go build -o "%OUTPUT_DIR%\update-server.exe" .
+go build -o "%SERVER_OUTPUT%" .
 if errorlevel 1 (
     echo ERROR: Failed to build update-server.exe
     goto :error
@@ -43,19 +39,19 @@ if errorlevel 1 (
 echo SUCCESS: Built update-server.exe
 echo.
 
-echo [3/6] Building Update Publisher...
+echo [3/5] Building Publish Client...
 cd /d "%SCRIPT_DIR%cmd\update-publisher"
-go build -o "%CLIENT_OUTPUT_DIR%\update-publisher.exe" .
+go build -o "%CLIENT_DIR%\publish-client.exe" .
 if errorlevel 1 (
-    echo ERROR: Failed to build update-publisher.exe
+    echo ERROR: Failed to build publish-client.exe
     goto :error
 )
-echo SUCCESS: Built update-publisher.exe
+echo SUCCESS: Built publish-client.exe
 echo.
 
-echo [4/6] Building Update Client...
+echo [4/5] Building Update Client...
 cd /d "%SCRIPT_DIR%cmd\update-client"
-go build -o "%CLIENT_OUTPUT_DIR%\update-client.exe" .
+go build -o "%CLIENT_DIR%\update-client.exe" .
 if errorlevel 1 (
     echo ERROR: Failed to build update-client.exe
     goto :error
@@ -63,58 +59,46 @@ if errorlevel 1 (
 echo SUCCESS: Built update-client.exe
 echo.
 
-echo [5/6] Copying client executables to server data directory...
-if not exist "%SERVER_CLIENT_DIR%" mkdir "%SERVER_CLIENT_DIR%"
-
-REM Copy update publisher
-copy /Y "%CLIENT_OUTPUT_DIR%\update-publisher.exe" "%SERVER_CLIENT_DIR%\update-publisher.exe"
+echo [5/5] Copying configuration files...
+REM Copy publish-client usage guide
+copy /Y "%SCRIPT_DIR%cmd\update-publisher\publish-client.usage.txt" "%CLIENT_DIR%\publish-client.usage.txt" >nul
 if errorlevel 1 (
-    echo WARNING: Standard copy failed, using robocopy fallback...
-    robocopy "%CLIENT_OUTPUT_DIR%" "%SERVER_CLIENT_DIR%" "update-publisher.exe" /noclobber /njh /njs /ndl /nc /ns
+    robocopy "%SCRIPT_DIR%cmd\update-publisher" "%CLIENT_DIR%" "publish-client.usage.txt" /noclobber /njh /njs /ndl /nc /ns >nul
 )
-echo Copied: update-publisher.exe -^> %SERVER_CLIENT_DIR%
-
-REM Copy update client
-copy /Y "%CLIENT_OUTPUT_DIR%\update-client.exe" "%SERVER_CLIENT_DIR%\update-client.exe"
-if errorlevel 1 (
-    echo WARNING: Standard copy failed, using robocopy fallback...
-    robocopy "%CLIENT_OUTPUT_DIR%" "%SERVER_CLIENT_DIR%" "update-client.exe" /noclobber /njh /njs /ndl /nc /ns
-)
-echo Copied: update-client.exe -^> %SERVER_CLIENT_DIR%
-
-echo.
-echo [6/6] Copying client configuration files...
-REM Copy update-publisher usage guide
-copy /Y "%SCRIPT_DIR%cmd\update-publisher\update-publisher.usage.txt" "%CLIENT_OUTPUT_DIR%\update-publisher.usage.txt"
-if errorlevel 1 (
-    robocopy "%SCRIPT_DIR%cmd\update-publisher" "%CLIENT_OUTPUT_DIR%" "update-publisher.usage.txt" /noclobber /njh /njs /ndl /nc /ns
-)
-echo Copied: update-publisher.usage.txt -^> %CLIENT_OUTPUT_DIR%
+echo Copied: publish-client.usage.txt
 
 REM Copy update-client config template
-copy /Y "%SCRIPT_DIR%cmd\update-client\update-client.config.yaml" "%CLIENT_OUTPUT_DIR%\update-client.config.yaml"
+copy /Y "%SCRIPT_DIR%cmd\update-client\update-client.config.yaml" "%CLIENT_DIR%\update-client.config.yaml" >nul
 if errorlevel 1 (
-    robocopy "%SCRIPT_DIR%cmd\update-client" "%CLIENT_OUTPUT_DIR%" "update-client.config.yaml" /noclobber /njh /njs /ndl /nc /ns
+    robocopy "%SCRIPT_DIR%cmd\update-client" "%CLIENT_DIR%" "update-client.config.yaml" /noclobber /njh /njs /ndl /nc /ns >nul
 )
-echo Copied: update-client.config.yaml -^> %CLIENT_OUTPUT_DIR%
+echo Copied: update-client.config.yaml
 
-REM Copy to server deployment directory
-copy /Y "%CLIENT_OUTPUT_DIR%\update-publisher.usage.txt" "%SERVER_CLIENT_DIR%\update-publisher.usage.txt"
+REM Copy server config template
+copy /Y "%SCRIPT_DIR%config.yaml" "%OUTPUT_DIR%\config.yaml" >nul
 if errorlevel 1 (
-    robocopy "%CLIENT_OUTPUT_DIR%" "%SERVER_CLIENT_DIR%" "update-publisher.usage.txt" /noclobber /njh /njs /ndl /nc /ns
+    robocopy "%SCRIPT_DIR%" "%OUTPUT_DIR%" "config.yaml" /noclobber /njh /njs /ndl /nc /ns >nul
 )
-
-copy /Y "%CLIENT_OUTPUT_DIR%\update-client.config.yaml" "%SERVER_CLIENT_DIR%\update-client.config.yaml"
-if errorlevel 1 (
-    robocopy "%CLIENT_OUTPUT_DIR%" "%SERVER_CLIENT_DIR%" "update-client.config.yaml" /noclobber /njh /njs /ndl /nc /ns
-)
+echo Copied: config.yaml
 echo.
-echo Configuration files copied to server deployment directory.
 
+echo ========================================
+echo   Build Completed Successfully
+echo ========================================
 echo.
-echo ========================================
-echo   All Build Steps Completed Successfully
-echo ========================================
+echo Deployment directory structure:
+echo.
+echo   bin\
+echo     +-- update-server.exe
+echo     +-- config.yaml
+echo     +-- data\
+echo         +-- clients\
+echo             +-- publish-client.exe
+echo             +-- publish-client.usage.txt
+echo             +-- update-client.exe
+echo             +-- update-client.config.yaml
+echo.
+echo You can now copy the entire 'bin' folder to your server.
 goto :end
 
 :error
