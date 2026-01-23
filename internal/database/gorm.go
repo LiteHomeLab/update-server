@@ -83,7 +83,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.Program{},
 		&models.Version{},
 		&models.Token{},
-		&models.AdminUser{},
 		&models.EncryptionKey{},
 	)
 }
