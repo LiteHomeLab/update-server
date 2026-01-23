@@ -60,12 +60,23 @@ func (p *ClientPackager) GeneratePublishClient(programID, outputDir string) (*Cl
 		return nil, fmt.Errorf("获取上传 Token 失败: %v", err)
 	}
 
-	// 打包配置
-	config := ClientPackagerConfig{
-		ServerURL:      "http://localhost:8080", // TODO: 从配置获取
-		ProgramID:     programID,
-		Token:         uploadToken.TokenValue,
-		EncryptionKey: program.EncryptionKey,
+	// 获取加密密钥 - 修复：从 encryption_keys 表获取
+	encryptionKey, err := p.programService.GetProgramEncryptionKey(programID)
+	if err != nil {
+		return nil, fmt.Errorf("获取加密密钥失败: %v", err)
+	}
+
+	// 打包配置 - 修复：从配置读取 serverUrl
+	serverURL := p.config.ServerURL
+	if serverURL == "" {
+		serverURL = "http://localhost:8080"  // Fallback default
+	}
+
+	clientPkgConfig := ClientPackagerConfig{
+		ServerURL:      serverURL,
+		ProgramID:      programID,
+		Token:          uploadToken.TokenValue,
+		EncryptionKey:  encryptionKey,  // 修复：使用从数据库获取的密钥
 	}
 
 	// 创建临时目录
@@ -83,13 +94,13 @@ func (p *ClientPackager) GeneratePublishClient(programID, outputDir string) (*Cl
 	}
 
 	// 生成配置文件
-	configContent := generateConfigFile(config)
+	configContent := generateConfigFile(clientPkgConfig)
 	if err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), configContent, 0644); err != nil {
 		return nil, fmt.Errorf("写入配置文件失败: %v", err)
 	}
 
 	// 生成 README 文件
-	readmeContent, err := p.generateReadmeFile(config, "publish", program)
+	readmeContent, err := p.generateReadmeFile(clientPkgConfig, "publish", program)
 	if err != nil {
 		return nil, fmt.Errorf("生成 README 文件失败: %v", err)
 	}
@@ -98,7 +109,7 @@ func (p *ClientPackager) GeneratePublishClient(programID, outputDir string) (*Cl
 	}
 
 	// 生成版本信息文件
-	versionContent, err := p.generateVersionFile(config, "publish")
+	versionContent, err := p.generateVersionFile(clientPkgConfig, "publish")
 	if err != nil {
 		return nil, fmt.Errorf("生成版本信息文件失败: %v", err)
 	}
