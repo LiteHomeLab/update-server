@@ -17,6 +17,7 @@ type Config struct {
 	ServerURL          string         `yaml:"serverUrl"`        // 客户端连接的服务器地址
 	AdminInitialized   bool           `yaml:"adminInitialized"` // 管理员是否已初始化
 	ClientsDirectory   string         `yaml:"clientsDirectory"` // 客户端工具目录
+	Admin              AdminConfig    `yaml:"admin"`            // 管理员配置
 }
 
 type ServerConfig struct {
@@ -50,6 +51,12 @@ type LoggerConfig struct {
 
 type CryptoConfig struct {
 	MasterKey string `yaml:"masterKey"`
+}
+
+// AdminConfig 管理员配置
+type AdminConfig struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 // Load 从 YAML 文件加载配置
