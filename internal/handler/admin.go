@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"docufiller-update-server/internal/service"
+
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 
@@ -11,7 +13,6 @@ type AdminHandler struct {
 	programService      *service.ProgramService
 	versionService     *service.VersionService
 	tokenService       *service.TokenService
-	setupService       *service.SetupService
 	clientPackagerService *service.ClientPackager
 }
 
@@ -19,14 +20,12 @@ func NewAdminHandler(
 	programService *service.ProgramService,
 	versionService *service.VersionService,
 	tokenService *service.TokenService,
-	setupService *service.SetupService,
 	clientPackagerService *service.ClientPackager,
 ) *AdminHandler {
 	return &AdminHandler{
 		programService:      programService,
 		versionService:     versionService,
 		tokenService:       tokenService,
-		setupService:       setupService,
 		clientPackagerService: clientPackagerService,
 	}
 }

@@ -53,3 +53,24 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	session.Save()
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
+
+// AuthMiddleware 管理后台认证中间件
+func AuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		session := sessions.Default(c)
+
+		authenticated := session.Get("authenticated")
+		if authenticated != true {
+			// 未登录，返回 401 或重定向到登录页
+			if c.Request.Header.Get("Content-Type") == "application/json" {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "未登录"})
+			} else {
+				c.Redirect(http.StatusFound, "/admin/login")
+			}
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
