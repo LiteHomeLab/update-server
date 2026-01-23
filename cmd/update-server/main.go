@@ -66,6 +66,14 @@ func main() {
 
 	// 添加 Session 中间件
 	store := cookie.NewStore([]byte(cfg.Crypto.MasterKey))
+	store.Options(sessions.Options{
+		MaxAge:   3600 * 12, // 12 hours
+		Path:     "/",
+		Domain:   "",         // 留空表示当前域名
+		Secure:   false,      // HTTP 使用 false，HTTPS 使用 true
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode, // 允许跨站点导航时发送 cookie
+	})
 	r.Use(sessions.Sessions("admin-session", store))
 
 	// 加载 HTML 模板 (使用嵌入的文件系统)
@@ -78,7 +86,7 @@ func main() {
 	storageService := service.NewStorageService(cfg.Storage.BasePath)
 	programService := service.NewProgramService(db)
 	versionService := service.NewVersionService(db, storageService)
-	clientPackagerService := service.NewClientPackager(programService)
+	clientPackagerService := service.NewClientPackager(programService, cfg)
 
 	// 初始化 handlers
 	authHandler := handler.NewAuthHandler(cfg)

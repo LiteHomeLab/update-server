@@ -12,6 +12,7 @@ import (
 	"strings"
 	"text/template"
 
+	"docufiller-update-server/internal/config"
 	"docufiller-update-server/internal/models"
 )
 
@@ -34,12 +35,14 @@ type ClientPackagerResult struct {
 // ClientPackager 客户端打包器
 type ClientPackager struct {
 	programService *ProgramService
+	config         *config.Config
 }
 
 // NewClientPackager 创建客户端打包器
-func NewClientPackager(programService *ProgramService) *ClientPackager {
+func NewClientPackager(programService *ProgramService, cfg *config.Config) *ClientPackager {
 	return &ClientPackager{
 		programService: programService,
+		config:         cfg,
 	}
 }
 
