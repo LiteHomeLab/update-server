@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"docufiller-update-server/internal/config"
 	"docufiller-update-server/internal/database"
@@ -62,6 +64,10 @@ func main() {
 	}
 	r := gin.Default()
 
+	// 添加 Session 中间件
+	store := cookie.NewStore([]byte(cfg.Crypto.MasterKey))
+	r.Use(sessions.Sessions("admin-session", store))
+
 	// 加载 HTML 模板 (使用嵌入的文件系统)
 	r.LoadHTMLFS(http.FS(web.Files), "*.html")
 
@@ -72,58 +78,22 @@ func main() {
 	storageService := service.NewStorageService(cfg.Storage.BasePath)
 	programService := service.NewProgramService(db)
 	versionService := service.NewVersionService(db, storageService)
-	setupService := service.NewSetupService(db)
 	clientPackagerService := service.NewClientPackager(programService)
 
 	// 初始化 handlers
-	setupHandler := handler.NewSetupHandler(setupService)
-	authHandler := handler.NewAuthHandler(db)
+	authHandler := handler.NewAuthHandler(cfg)
 
 	adminHandler := handler.NewAdminHandler(
 		programService,
 		versionService,
 		tokenSvc,
-		setupService,
 		clientPackagerService,
 	)
 
-	// 检查初始化状态
-	initialized, err := setupService.IsInitialized()
-	if err != nil {
-		logger.Fatalf("Failed to check initialization status: %v", err)
-	}
-
-	// 设置根路由 - 如果未初始化，重定向到 setup 页面
-	if !initialized {
-		r.GET("/", func(c *gin.Context) {
-			c.Redirect(http.StatusFound, "/setup")
-		})
-	} else {
-		// 已初始化，设置管理后台首页
-		r.GET("/", func(c *gin.Context) {
-			c.Redirect(http.StatusFound, "/admin")
-		})
-	}
-
-	// Setup 页面路由 - 未初始化时可用
-	setupGroup := r.Group("/setup")
-	{
-		// Setup 页面
-		setupGroup.GET("", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "setup.html", gin.H{
-				"title": "初始化向导",
-			})
-		})
-
-		// 认证相关 - 初始化页面内需要登录
-		setupGroup.POST("/login", authHandler.Login)
-		setupGroup.GET("/login", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "login.html", gin.H{
-				"title": "管理员登录",
-				"action": "/setup/login",
-			})
-		})
-	}
+	// 根路径直接重定向到管理后台
+	r.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusFound, "/admin")
+	})
 
 	// Admin 登录路由 - 无需认证
 	r.GET("/admin/login", func(c *gin.Context) {
@@ -136,47 +106,15 @@ func main() {
 
 	// Admin 页面路由 - 需要认证
 	adminGroup := r.Group("/admin")
-	if initialized {
-		adminGroup.Use(handler.AuthMiddleware())
-	}
+	adminGroup.Use(handler.AuthMiddleware())
 	{
 		adminGroup.GET("", func(c *gin.Context) {
-			// 动态检查初始化状态，而不是使用启动时的缓存值
-			isInitialized, err := setupService.IsInitialized()
-			if err != nil {
-				c.HTML(http.StatusInternalServerError, "error.html", gin.H{
-					"error": "无法检查初始化状态",
-				})
-				return
-			}
-			if isInitialized {
-				c.HTML(http.StatusOK, "admin.html", gin.H{
-					"title": "管理后台",
-				})
-			} else {
-				c.Redirect(http.StatusFound, "/setup")
-			}
+			c.HTML(http.StatusOK, "admin.html", gin.H{
+				"title": "管理后台",
+			})
 		})
 
 		adminGroup.POST("/logout", authHandler.Logout)
-	}
-
-	// Setup API 路由 - 未初始化时可用
-	setupAPI := r.Group("/api/setup")
-	if !initialized {
-		setupAPI.Use(func(c *gin.Context) {
-			initialized, _ := setupService.IsInitialized()
-			if initialized {
-				c.JSON(http.StatusForbidden, gin.H{"error": "服务器已初始化"})
-				c.Abort()
-				return
-			}
-			c.Next()
-		})
-	}
-	{
-		setupAPI.GET("/status", setupHandler.CheckInitStatus)
-		setupAPI.POST("/initialize", setupHandler.Initialize)
 	}
 
 	// Admin API 路由 - 需要认证
