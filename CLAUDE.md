@@ -141,22 +141,41 @@ Handlers → Services → Models
   - `api.uploadToken`: Bearer token for upload authentication (MUST be changed in production)
   - `storage.maxFileSize`: Maximum upload size (default: 512MB)
   - `logger.level`: Log verbosity (trace/debug/info/warn/error)
+  - `admin.username`: Admin username for management backend (default: "admin")
+  - `admin.password`: Admin password for management backend (MUST be changed in production)
 
 ## API Endpoints Reference
 
 ### Public Endpoints
 - `GET /api/health` - Health check
-- `GET /api/version/latest?channel={stable|beta}` - Get latest version
-- `GET /api/version/list?channel={stable|beta}` - List all versions
-- `GET /api/download/{channel}/{version}` - Download package file
+- `GET /api/programs/{programId}/versions/latest?channel={stable|beta}` - Get latest version
+- `GET /api/programs/{programId}/versions?channel={stable|beta}` - List all versions
+- `GET /api/programs/{programId}/download/{channel}/{version}` - Download package file
 
 ### Protected Endpoints (Bearer Token Required)
-- `POST /api/version/upload` - Upload new version
-- `DELETE /api/version/{channel}/{version}` - Delete a version
+- `POST /api/programs/{programId}/versions` - Upload new version
+- `DELETE /api/programs/{programId}/versions/{version}` - Delete a version
+
+### Admin Backend Endpoints (Session Authentication Required)
+- `GET /admin` - Admin dashboard page
+- `GET /admin/login` - Login page
+- `POST /admin/login` - Login API
+- `POST /admin/logout` - Logout API
+- `GET /api/admin/programs` - List all programs
+- `POST /api/admin/programs` - Create new program
+- `GET /api/admin/programs/{programId}` - Get program details
+- `DELETE /api/admin/programs/{programId}` - Delete program
+- `GET /api/admin/programs/{programId}/versions` - List versions
+- `DELETE /api/admin/programs/{programId}/versions/{version}` - Delete version
+- `POST /api/admin/programs/{programId}/tokens/regenerate?type={upload|download}` - Regenerate token
+- `POST /api/admin/programs/{programId}/encryption/regenerate` - Regenerate encryption key
+- `GET /api/admin/programs/{programId}/client/publish` - Download publish client
+- `GET /api/admin/programs/{programId}/client/update` - Download update client
 
 ## Database
 
 - **Type**: SQLite
 - **Location**: `./data/versions.db` (configurable via `config.yaml`)
 - **ORM**: GORM with auto-migration enabled
-- **Model**: `Version` entity with fields: version, channel, filename, filepath, filesize, filehash (SHA256), release notes, publish date, mandatory update flag, download count
+- **Models**: `Program`, `Version`, `Token`, `EncryptionKey` entities
+  - Admin credentials are stored in `config.yaml`, not in database
