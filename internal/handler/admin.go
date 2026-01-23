@@ -76,8 +76,17 @@ func (h *AdminHandler) GetProgramDetail(c *gin.Context) {
 	}
 
 	encryptionKey, _ := h.programService.GetProgramEncryptionKey(programID)
-	uploadToken, _ := h.tokenService.GetToken(programID, "upload", "admin")
-	downloadToken, _ := h.tokenService.GetToken(programID, "download", "admin")
+	uploadTokenObj, _ := h.tokenService.GetToken(programID, "upload", "admin")
+	downloadTokenObj, _ := h.tokenService.GetToken(programID, "download", "admin")
+
+	uploadToken := ""
+	downloadToken := ""
+	if uploadTokenObj != nil {
+		uploadToken = uploadTokenObj.TokenValue
+	}
+	if downloadTokenObj != nil {
+		downloadToken = downloadTokenObj.TokenValue
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"program":       program,

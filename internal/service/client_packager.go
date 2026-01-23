@@ -243,11 +243,11 @@ func (p *ClientPackager) generateReadmeFile(config ClientPackagerConfig, clientT
 	var readmeTemplate string
 	switch clientType {
 	case "publish":
-		readmeTemplate = "# {{programName}} 管理工具\n\n用于 {{programName}} 更新服务器的命令行管理工具。\n\n## 配置\n\n### 自动配置（推荐）\n工具启动时会自动读取当前目录的 config.yaml 文件。\n\n### 环境变量（可选）\n```\nsetx UPDATE_SERVER_URL \"{{.ServerURL}}\"\nsetx UPDATE_TOKEN \"{{.Token}}\"\n```\n\n## 使用示例\n\n### 上传新版本\n```\n{{clientExe}} upload --program-id {{.ProgramID}} --channel stable --version 1.0.0 --file your-app.zip --notes \"发布说明\"\n```\n\n### 列出版本\n```\n{{clientExe}} list --program-id {{.ProgramID}}\n```\n\n## 支持的命令\n\n| 命令 | 说明 |\n|------|------|\n| upload | 上传新版本 |\n| list | 列出版本信息 |\n| delete | 删除指定版本 |\n\n## 更多信息\n- 项目主页: https://github.com/LiteHomeLab/update-server\n- 文档: https://github.com/LiteHomeLab/update-server/docs\n"
+		readmeTemplate = "# {{.ProgramName}} 管理工具\n\n用于 {{.ProgramName}} 更新服务器的命令行管理工具。\n\n## 配置\n\n### 自动配置（推荐）\n工具启动时会自动读取当前目录的 config.yaml 文件。\n\n### 环境变量（可选）\n```\nsetx UPDATE_SERVER_URL \"{{.ServerURL}}\"\nsetx UPDATE_TOKEN \"{{.Token}}\"\n```\n\n## 使用示例\n\n### 上传新版本\n```\n{{.ClientExe}} upload --program-id {{.ProgramID}} --channel stable --version 1.0.0 --file your-app.zip --notes \"发布说明\"\n```\n\n### 列出版本\n```\n{{.ClientExe}} list --program-id {{.ProgramID}}\n```\n\n## 支持的命令\n\n| 命令 | 说明 |\n|------|------|\n| upload | 上传新版本 |\n| list | 列出版本信息 |\n| delete | 删除指定版本 |\n\n## 更多信息\n- 项目主页: https://github.com/LiteHomeLab/update-server\n- 文档: https://github.com/LiteHomeLab/update-server/docs\n"
 	case "update":
-		readmeTemplate = "# {{programName}} 更新客户端\n\n{{programName}} 的自动更新客户端工具。\n\n## 功能特点\n\n- 自动检查更新\n- 支持静默更新\n- 支持强制更新\n- 支持增量更新\n- 支持代理配置\n\n## 配置\n\n自动读取 config.yaml 配置文件。\n\n## 使用方法\n\n### 命令行启动\n```\n{{clientExe}} --program-id {{.ProgramID}}\n```\n\n### 系统托盘\n双击启动后会在系统托盘运行，自动检查更新。\n\n## 日志文件\n- 日志位置: client.log\n- 更新日志: updates.log\n\n## 版本信息\n- 当前版本: 1.0.0\n- 支持平台: Windows x64\n"
+		readmeTemplate = "# {{.ProgramName}} 更新客户端\n\n{{.ProgramName}} 的自动更新客户端工具。\n\n## 功能特点\n\n- 自动检查更新\n- 支持静默更新\n- 支持强制更新\n- 支持增量更新\n- 支持代理配置\n\n## 配置\n\n自动读取 config.yaml 配置文件。\n\n## 使用方法\n\n### 命令行启动\n```\n{{.ClientExe}} --program-id {{.ProgramID}}\n```\n\n### 系统托盘\n双击启动后会在系统托盘运行，自动检查更新。\n\n## 日志文件\n- 日志位置: client.log\n- 更新日志: updates.log\n\n## 版本信息\n- 当前版本: 1.0.0\n- 支持平台: Windows x64\n"
 	default:
-		readmeTemplate = "# Update Server Client\n\n通用更新客户端工具。\n\n## 配置\n读取 config.yaml 配置文件。\n\n## 使用\n```\n{{clientExe}} --help\n```\n"
+		readmeTemplate = "# Update Server Client\n\n通用更新客户端工具。\n\n## 配置\n读取 config.yaml 配置文件。\n\n## 使用\n```\n{{.ClientExe}} --help\n```\n"
 	}
 
 	tmpl, err := template.New("readme").Parse(readmeTemplate)

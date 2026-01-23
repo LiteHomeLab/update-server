@@ -159,14 +159,14 @@ func (s *ProgramService) RegenerateEncryptionKey(programID string) (string, erro
 }
 
 type CreateProgramRequest struct {
-	ProgramID   string
-	Name        string
-	Description string
+	ProgramID   string `json:"programId"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 type CreateProgramResponse struct {
-	Program       *models.Program
-	EncryptionKey string
-	UploadToken   string
-	DownloadToken string
+	Program       *models.Program `json:"program"`
+	EncryptionKey string          `json:"encryptionKey"`
+	UploadToken   string          `json:"uploadToken"`
+	DownloadToken string          `json:"downloadToken"`
 }

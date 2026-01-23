@@ -16,13 +16,26 @@ set "SERVER_OUTPUT=%OUTPUT_DIR%\update-server.exe"
 set "CLIENT_DIR=%OUTPUT_DIR%\data\clients"
 
 echo [1/5] Cleaning output directory...
+REM Kill any running server process first
+taskkill /F /IM update-server.exe >nul 2>&1
+taskkill /F /IM docufiller-update-server.exe >nul 2>&1
+
 REM Clean output directory to avoid cache issues
 if exist "%OUTPUT_DIR%" (
     echo Removing: %OUTPUT_DIR%
-    rmdir /s /q "%OUTPUT_DIR%" 2>nul
+    rmdir /s /q "%OUTPUT_DIR%"
+    if errorlevel 1 (
+        echo WARNING: Failed to remove %OUTPUT_DIR%
+        echo Files may be in use. Trying alternative cleanup...
+        timeout /t 1 /nobreak >nul
+        rmdir /s /q "%OUTPUT_DIR%" 2>nul
+    )
 )
 
 echo Creating fresh output directory...
+if exist "%OUTPUT_DIR%" (
+    echo WARNING: Output directory still exists, may contain old files
+)
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
 if not exist "%CLIENT_DIR%" mkdir "%CLIENT_DIR%"
 echo Created: %OUTPUT_DIR%

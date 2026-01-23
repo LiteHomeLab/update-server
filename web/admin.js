@@ -163,11 +163,18 @@ async function handleCreateProgram(e) {
         return;
     }
 
+    // 生成 programId
+    const programId = generateProgramId(name);
+
     try {
         const response = await fetch('/api/admin/programs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name })
+            body: JSON.stringify({
+                programId: programId,
+                name: name,
+                description: name + ' 自动更新程序'
+            })
         });
 
         if (!response.ok) {
@@ -515,6 +522,44 @@ async function downloadUpdateClient() {
     }
 }
 
+async function downloadPublishClient() {
+    if (!currentProgram) {
+        showToast('请先选择程序', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/programs/${currentProgram}/client/publish`);
+
+        if (!response.ok) {
+            throw new Error('下载发布客户端包失败');
+        }
+
+        // 获取文件名
+        const disposition = response.headers.get('Content-Disposition');
+        let filename = 'publish-client.zip';
+        if (disposition) {
+            const match = disposition.match(/filename="(.+)"/);
+            if (match) filename = match[1];
+        }
+
+        // 下载文件
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        showToast('下载已开始', 'success');
+    } catch (error) {
+        showToast('下载失败: ' + error.message, 'error');
+    }
+}
+
 function updateCommandExamples(data) {
     const serverUrl = window.location.origin;
     const uploadToken = data.uploadToken;
@@ -645,4 +690,18 @@ function formatDate(dateString) {
         hour: '2-digit',
         minute: '2-digit'
     });
+}
+
+function generateProgramId(name) {
+    // 将名称转换为小写并移除特殊字符
+    const normalized = name.toLowerCase()
+        .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+    // 生成时间戳和随机字符串
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 6);
+
+    // 组合成 programId
+    return `${normalized}-${timestamp}-${random}`;
 }
