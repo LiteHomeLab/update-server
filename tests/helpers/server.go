@@ -6,10 +6,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"docufiller-update-server/internal/config"
 	"docufiller-update-server/internal/handler"
 	"docufiller-update-server/internal/logger"
 	"docufiller-update-server/internal/middleware"
@@ -19,18 +22,17 @@ import (
 
 // TestServer represents a test server instance
 type TestServer struct {
-	Router           *gin.Engine
-	DB               *gorm.DB
-	URL              string
-	TempDir          string
-	TokenService     *service.TokenService
-	ProgramService   *service.ProgramService
-	VersionService   *service.VersionService
-	StorageBasePath  string
-	AdminToken       string
-	AdminUser        *models.AdminUser
-	TestProgramID    string
-	TestUploadToken  string
+	Router            *gin.Engine
+	DB                *gorm.DB
+	URL               string
+	TempDir           string
+	TokenService      *service.TokenService
+	ProgramService    *service.ProgramService
+	VersionService    *service.VersionService
+	StorageBasePath   string
+	AdminToken        string
+	TestProgramID     string
+	TestUploadToken   string
 	TestDownloadToken string
 }
 
@@ -60,7 +62,6 @@ func setupTestServer(t TestingT) *TestServer {
 		&models.Version{},
 		&models.Program{},
 		&models.Token{},
-		&models.AdminUser{},
 		&models.EncryptionKey{},
 	)
 	if err != nil {
@@ -74,16 +75,35 @@ func setupTestServer(t TestingT) *TestServer {
 	}
 	_ = logger.Init(loggerCfg)
 
+	// Setup test config
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			Port: 18080,
+			Host: "127.0.0.1",
+		},
+		Crypto: config.CryptoConfig{
+			MasterKey: "test-master-key-for-testing-32bytes!!",
+		},
+		Admin: config.AdminConfig{
+			Username: "admin",
+			Password: "test-password",
+		},
+	}
+
 	// Setup Gin
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
+
+	// Add Session middleware
+	store := cookie.NewStore([]byte(cfg.Crypto.MasterKey))
+	router.Use(sessions.Sessions("admin-session", store))
 
 	// Initialize services
 	tokenSvc := service.NewTokenService(db)
 	authMiddleware := middleware.NewAuthMiddleware(tokenSvc)
 
 	// Initialize crypto service
-	cryptoSvc := service.NewCryptoService("test-master-key-for-testing-32bytes!!")
+	cryptoSvc := service.NewCryptoService(cfg.Crypto.MasterKey)
 	cryptoMiddleware := middleware.NewCryptoMiddleware(cryptoSvc)
 
 	// Storage base path
@@ -93,7 +113,7 @@ func setupTestServer(t TestingT) *TestServer {
 	storageService := service.NewStorageService(storageBasePath)
 	programService := service.NewProgramService(db)
 	versionService := service.NewVersionService(db, storageService)
-	setupService := service.NewSetupService(db)
+	clientPackagerService := service.NewClientPackager(programService)
 
 	// Get a test server port
 	serverURL := "http://127.0.0.1:18080"
@@ -111,7 +131,7 @@ func setupTestServer(t TestingT) *TestServer {
 	}
 
 	// Setup routes
-	setupTestRoutes(router, db, tokenSvc, authMiddleware, cryptoMiddleware, programService, versionService, setupService, storageBasePath)
+	setupTestRoutes(router, db, cfg, tokenSvc, authMiddleware, cryptoMiddleware, programService, versionService, clientPackagerService, storageBasePath)
 
 	return ts
 }
@@ -121,28 +141,13 @@ func SetupTestServer(t TestingT) *TestServer {
 	return setupTestServer(t)
 }
 
-// setupTestServerWithAdmin creates a test server with an admin user
+// setupTestServerWithAdmin creates a test server with an admin token
 func setupTestServerWithAdmin(t TestingT) *TestServer {
 	srv := setupTestServer(t)
 
-	// Create admin user
-	username := fmt.Sprintf("admin_%d", time.Now().Unix())
-	password := "TestPassword123!"
-	adminUser := &models.AdminUser{
-		Username: username,
-	}
-	if err := adminUser.SetPassword(password); err != nil {
-		t.Fatalf("Failed to set admin password: %v", err)
-	}
-
-	if err := srv.DB.Create(adminUser).Error; err != nil {
-		t.Fatalf("Failed to create admin user: %v", err)
-	}
-
-	// Generate admin token
+	// Generate admin token (for API authentication)
 	_, adminToken, _ := srv.TokenService.GenerateToken("", "admin", "system")
 
-	srv.AdminUser = adminUser
 	srv.AdminToken = adminToken
 
 	return srv
@@ -153,7 +158,7 @@ func SetupTestServerWithAdmin(t TestingT) *TestServer {
 	return setupTestServerWithAdmin(t)
 }
 
-// setupTestServerWithProgram creates a test server with admin user and a test program
+// setupTestServerWithProgram creates a test server with admin token and a test program
 func setupTestServerWithProgram(t TestingT) *TestServer {
 	srv := setupTestServerWithAdmin(t)
 
@@ -190,37 +195,29 @@ func SetupTestServerWithProgram(t TestingT) *TestServer {
 func setupTestRoutes(
 	r *gin.Engine,
 	db *gorm.DB,
+	cfg *config.Config,
 	tokenSvc *service.TokenService,
 	authMiddleware *middleware.AuthMiddleware,
 	cryptoMiddleware *middleware.CryptoMiddleware,
 	programService *service.ProgramService,
 	versionService *service.VersionService,
-	setupService *service.SetupService,
+	clientPackagerService *service.ClientPackager,
 	storageBasePath string,
 ) {
 	// Register crypto middleware
 	r.Use(cryptoMiddleware.Process())
 
 	// Initialize handlers
-	setupHandler := handler.NewSetupHandler(setupService)
-	authHandler := handler.NewAuthHandler(db)
+	authHandler := handler.NewAuthHandler(cfg)
 
 	adminHandler := handler.NewAdminHandler(
 		programService,
 		versionService,
 		tokenSvc,
-		setupService,
-		nil, // clientPackagerService - can be nil for basic tests
+		clientPackagerService,
 	)
 
 	versionHandler := handler.NewVersionHandler(db)
-
-	// Setup API routes (always available for testing)
-	setupAPI := r.Group("/api/setup")
-	{
-		setupAPI.GET("/status", setupHandler.CheckInitStatus)
-		setupAPI.POST("/initialize", setupHandler.Initialize)
-	}
 
 	// Admin API routes
 	adminAPI := r.Group("/api/admin")

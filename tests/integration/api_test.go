@@ -40,21 +40,21 @@ func TestAdminLoginAPI(t *testing.T) {
 	}{
 		{
 			name:       "valid credentials",
-			username:   srv.AdminUser.Username,
-			password:   "TestPassword123!",
+			username:   "admin",
+			password:   "test-password",
 			wantStatus: http.StatusOK,
 			wantSuccess: true,
 		},
 		{
 			name:       "invalid username",
 			username:   "nonexistent",
-			password:   "TestPassword123!",
+			password:   "test-password",
 			wantStatus: http.StatusUnauthorized,
 			wantSuccess: false,
 		},
 		{
 			name:       "invalid password",
-			username:   srv.AdminUser.Username,
+			username:   "admin",
 			password:   "wrongpassword",
 			wantStatus: http.StatusUnauthorized,
 			wantSuccess: false,

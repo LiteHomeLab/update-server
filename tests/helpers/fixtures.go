@@ -98,10 +98,10 @@ func getAdminToken(t TestingT, srv *TestServer) string {
 		return srv.AdminToken
 	}
 
-	// Perform login to get token
+	// Perform login to get token (using test credentials from config)
 	loginBody := map[string]interface{}{
-		"username": srv.AdminUser.Username,
-		"password": "TestPassword123!",
+		"username": "admin",
+		"password": "test-password",
 	}
 	jsonBody, _ := json.Marshal(loginBody)
 
@@ -118,12 +118,13 @@ func getAdminToken(t TestingT, srv *TestServer) string {
 	var response map[string]interface{}
 	json.Unmarshal(w.Body.Bytes(), &response)
 
-	token, ok := response["token"].(string)
-	if !ok {
-		t.Fatalf("Token not found in response")
+	// Login now returns {"success": true} instead of a token
+	// The admin token is generated during server setup
+	if srv.AdminToken == "" {
+		t.Fatalf("Admin token not set in test server")
 	}
 
-	return token
+	return srv.AdminToken
 }
 
 // GetProgramTokens returns the upload and download tokens for a program
