@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"docufiller-update-server/internal/service"
-
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 

@@ -209,7 +209,18 @@ func main() {
 	r.NoRoute(func(c *gin.Context) {
 		// 检查是否是静态文件请求
 		path := c.Request.URL.Path
-		if _, err := web.Files.Open(strings.TrimPrefix(path, "/")); err == nil {
+		// 跳过根路径
+		if path == "/" || path == "" {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		trimmedPath := strings.TrimPrefix(path, "/")
+		// 跳过空路径
+		if trimmedPath == "" {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		if _, err := web.Files.Open(trimmedPath); err == nil {
 			fileServer.ServeHTTP(c.Writer, c.Request)
 		} else {
 			// 不是静态文件，返回 404
