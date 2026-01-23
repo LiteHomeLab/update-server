@@ -172,6 +172,83 @@ Handlers → Services → Models
 - `GET /api/admin/programs/{programId}/client/publish` - Download publish client
 - `GET /api/admin/programs/{programId}/client/update` - Download update client
 
+## Client Packaging and Distribution Constraints
+
+### Directory Structure Requirements
+
+The server's client download functionality depends on a specific directory structure:
+
+```
+[server's working directory]
+└── data/
+    └── clients/
+        ├── publish-client.exe      # Publishing client tool
+        ├── publish-client.usage.txt
+        ├── update-client.exe       # Update client tool
+        └── update-client.config.yaml
+```
+
+**Critical**: The server must run from a directory containing the `data/clients/` subdirectory.
+
+### Hardcoded Paths
+
+The client packager service contains hardcoded paths in `internal/service/client_packager.go`:
+
+- Line 76: `./data/clients/publish-client.exe`
+- Line 161: `./data/clients/update-client.exe`
+
+**Development Rule**: When modifying client locations or build scripts, ensure these paths remain accessible relative to the server's working directory.
+
+### Build Script Synchronization
+
+The `build-all.bat` script MUST maintain its current output structure:
+
+```
+bin/
+├── update-server.exe
+├── config.yaml
+└── data/
+    └── clients/
+        ├── publish-client.exe
+        ├── publish-client.usage.txt
+        ├── update-client.exe
+        └── update-client.config.yaml
+```
+
+When running the server from `bin/`, the path `./data/clients/` correctly resolves to `bin/data/clients/`.
+
+### Client Configuration Differences
+
+**Publish Client (`update-publisher`)**:
+- Configuration: Command-line arguments only
+- No configuration file required
+- Used for: Uploading versions to the server
+
+**Update Client (`update-client`)**:
+- Configuration: Requires `update-config.yaml`
+- Note: When packaged for download, a `config.yaml` is dynamically generated with program-specific settings
+- Used for: Checking and downloading updates
+
+### Admin Backend Dynamic Packaging
+
+The admin backend's download endpoints (`/api/admin/programs/{programId}/client/publish` and `/api/admin/programs/{programId}/client/update`) work as follows:
+
+1. Read client executables from `./data/clients/`
+2. Fetch program-specific Token and encryption key from database
+3. Generate program-specific `config.yaml`
+4. Create ZIP package containing:
+   - Executable file (`update-admin.exe` or `update-client.exe`)
+   - `config.yaml` (program-specific)
+   - `README.md` (usage instructions)
+   - `version.txt` (package metadata)
+
+### Development Guidelines
+
+1. **Preserve directory structure**: Any changes to build output must maintain the `data/clients/` relative path
+2. **Update both locations**: If client paths change, update both `build-all.bat` and `client_packager.go`
+3. **Test download functionality**: After any build-related changes, verify the admin download endpoints work correctly
+4. **Configuration is dynamic**: Do not rely on static config files for packaged clients - they are generated at runtime
+
 ## Database
 
 - **Type**: SQLite
