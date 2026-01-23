@@ -6,6 +6,7 @@ toolchain go1.24.12
 
 require (
 	github.com/WQGroup/logger v0.0.16
+	github.com/gin-contrib/sessions v1.0.4
 	github.com/gin-gonic/gin v1.11.0
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/playwright-community/playwright-go v0.5200.1
@@ -33,6 +34,9 @@ require (
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
+	github.com/gorilla/context v1.1.2 // indirect
+	github.com/gorilla/securecookie v1.1.2 // indirect
+	github.com/gorilla/sessions v1.4.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
