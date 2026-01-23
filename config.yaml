@@ -24,3 +24,7 @@ logger:
 
 crypto:
   masterKey: "change-this-to-a-secure-32-byte-key-in-production"
+
+admin:
+  username: "admin"
+  password: "change-this-password-in-production"
