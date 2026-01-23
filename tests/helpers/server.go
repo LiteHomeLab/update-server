@@ -113,7 +113,7 @@ func setupTestServer(t TestingT) *TestServer {
 	storageService := service.NewStorageService(storageBasePath)
 	programService := service.NewProgramService(db)
 	versionService := service.NewVersionService(db, storageService)
-	clientPackagerService := service.NewClientPackager(programService)
+	clientPackagerService := service.NewClientPackager(programService, cfg)
 
 	// Get a test server port
 	serverURL := "http://127.0.0.1:18080"
