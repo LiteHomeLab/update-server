@@ -2,6 +2,8 @@ server:
   port: 8083
   host: "0.0.0.0"
 
+serverUrl: "http://localhost:8083"  # Public-facing URL for client connections
+
 database:
   path: "./data/versions.db"
 
