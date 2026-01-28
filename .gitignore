@@ -47,3 +47,7 @@ nul
 .claude
 **/obj/
 .no-pushover
+
+.playwright-mcp
+
+temp
